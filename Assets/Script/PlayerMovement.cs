@@ -2,43 +2,111 @@ using UnityEngine;
 
 public class PlayerMovement : MonoBehaviour
 {
-    // �ll�that� sebess�g �s ugr�er� a Unity Inspector ablak�ban
-    public float moveSpeed = 5f;        // Sebess�g Unit/m�sodpercben (5 Unit/m�sodperc)
-    public float jumpForce = 10f;       // Ugr�er� (gravit�ci�t�l f�gg�en �ll�tsd)
+    [Header("Mozgás Beállítások")]
+    public float moveSpeed = 5f;
+    public float jumpForce = 10f;       // Ezt állítsd be az Inspectorban (pl. 12-14)
+    public int extraJumps = 1;
+    public float fallThreshold = -10f;
 
-    // Referencia a Rigidbody 2D komponensre
+    [Header("Ugrás Finomhangolás")]
+    [Range(0, 1)] public float jumpCutMultiplier = 0.5f; // Mennyire vágja el az ugrást, ha elengeded a gombot (0.5 = felére)
+    public float gravityScale = 2.5f; // Az alap gravitáció erőssége (Ezt használjuk a Rigidbody-n)
+
     private Rigidbody2D rb;
-
-    // A talaj ellen�rz�s�hez sz�ks�ges v�ltoz�k
-    private bool isGrounded;
+    public bool isGrounded;
     public Transform groundCheck;
     public LayerMask groundLayer;
-    public float checkRadius = 0.1f; // A vizsg�lt k�r sugara
+    public float checkRadius = 0.2f;
+
+    private int jumpCounter;
+    private bool isDead = false;
 
     void Start()
     {
-        // A Rigidbody 2D komponens beolvas�sa indul�skor
         rb = GetComponent<Rigidbody2D>();
+        jumpCounter = extraJumps;
+
+        // Beállítjuk a Rigidbody gravitációját a kód alapján, hogy itt tudd szabályozni
+        rb.gravityScale = gravityScale;
     }
 
     void Update()
     {
-        // Talaj ellen�rz�se
+        if (isDead)
+        {
+            rb.linearVelocity = Vector2.zero;
+            return;
+        }
+
+        // --- Talaj ellenőrzés ---
+        bool wasGrounded = isGrounded;
         isGrounded = Physics2D.OverlapCircle(groundCheck.position, checkRadius, groundLayer);
 
-        // ------------------
-        // 1. V�zszintes Mozg�s
-        // ------------------
-        float moveInput = Input.GetAxisRaw("Horizontal"); // -1 (bal) �s 1 (jobb) k�z�tti �rt�k
+        // Reseteljük az ugrásokat
+        if (isGrounded && rb.linearVelocity.y <= 0)
+        {
+            jumpCounter = extraJumps;
+        }
+
+        // --- Mozgás ---
+        float moveInput = Input.GetAxisRaw("Horizontal");
         rb.linearVelocity = new Vector2(moveInput * moveSpeed, rb.linearVelocity.y);
 
-        // ------------------
-        // 2. Ugr�s
-        // ------------------
-        if (Input.GetButtonDown("Jump") && isGrounded)
+        // Forgatás
+        if (moveInput > 0) transform.localScale = new Vector3(1, 1, 1);
+        else if (moveInput < 0) transform.localScale = new Vector3(-1, 1, 1);
+
+        // --- UGRÁS (INDÍTÁS) ---
+        if (Input.GetButtonDown("Jump"))
         {
-            // Er� (Force) alkalmaz�sa a y-tengely ment�n
-            rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
+            if (isGrounded)
+            {
+                Jump();
+            }
+            else if (jumpCounter > 0)
+            {
+                Jump();
+                jumpCounter--;
+            }
         }
+
+        // --- VÁLTOZTATHATÓ UGRÁSMAGASSÁG (EZ A LÉNYEG!) ---
+        // Ha elengedjük a gombot ÉS éppen felfelé mozgunk...
+        if (Input.GetButtonUp("Jump") && rb.linearVelocity.y > 0)
+        {
+            // ...akkor a sebességet megfelezzük (levágjuk az ugrást)
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y * jumpCutMultiplier);
+        }
+
+        if (transform.position.y < fallThreshold)
+        {
+            Die();
+        }
+    }
+
+    void Jump()
+    {
+        // Nullázzuk az Y sebességet a konzisztens ugrásért
+        rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0);
+        rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
+    }
+
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (collision.CompareTag("Goal"))
+        {
+            FindAnyObjectByType<GameManager>().LevelComplete();
+        }
+        else if (collision.CompareTag("Trap"))
+        {
+            Die();
+        }
+    }
+
+    void Die()
+    {
+        isDead = true;
+        FindAnyObjectByType<GameManager>().GameOver();
+        Destroy(gameObject);
     }
 }
