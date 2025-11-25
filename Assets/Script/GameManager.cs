@@ -12,6 +12,19 @@ public class GameManager : MonoBehaviour
     public PlayerMovement playerScript;
     public int maxRounds = 7;
 
+    [Header("Kulcs Rendszer")]
+    public bool levelRequiresKey = true;
+    public GameObject keyPrefab;
+
+    // --- ÚJ VÁLTOZÓ: A te általad lerakott pont ---
+    public Transform manualKeyLocation;
+
+    // A régi random beállítások (maradhatnak, de nem használjuk õket, ha van fix pont)
+    [Header("Random beállítások (Csak ha nincs fix pont)")]
+    public float levelMinX = -10f;
+    public float levelMaxX = 20f;
+    public float keySpawnHeight = 10f;
+
     [Header("Idõzítés (Random)")]
     public float minTrapTime = 5.0f;
     public float maxTrapTime = 10.0f;
@@ -28,18 +41,15 @@ public class GameManager : MonoBehaviour
     public GameObject winPanel;
     public TextMeshProUGUI winText;
 
-    // --- STATIKUS VÁLTOZÓK ---
     private static List<Vector3> trapPositions = new List<Vector3>();
     private static int currentRound = 1;
-
-    // --- IDEIGLENES VÁLTOZÓK ---
     private Vector3 tempTrapPosition;
     private bool tempPosRecorded = false;
     private bool isLevelFinished = false;
     private Vector3 startPosition;
     private float currentTrapTime;
+    private bool hasKey = false;
 
-    // --- NAPLÓZÁS ---
     private List<Vector3> validPositionsHistory = new List<Vector3>();
     private float historySampleRate = 0.2f;
     private float nextSampleTime = 0f;
@@ -48,16 +58,12 @@ public class GameManager : MonoBehaviour
     {
         isLevelFinished = false;
         tempPosRecorded = false;
+        hasKey = false;
         validPositionsHistory.Clear();
 
         currentTrapTime = Random.Range(minTrapTime, maxTrapTime);
-        Debug.Log($"Célzott idõ: {currentTrapTime:F2} mp");
 
-        if (playerScript != null)
-        {
-            startPosition = playerScript.transform.position;
-        }
-
+        if (playerScript != null) startPosition = playerScript.transform.position;
         if (roundText != null) roundText.text = $"Round: {currentRound} / {maxRounds}";
         if (winPanel != null) winPanel.SetActive(false);
         if (restartButton != null) restartButton.SetActive(false);
@@ -70,85 +76,99 @@ public class GameManager : MonoBehaviour
                 Instantiate(trapPrefab, spawnPos, Quaternion.identity);
             }
         }
+
+        if (levelRequiresKey)
+        {
+            SpawnKey();
+        }
     }
 
     void Update()
     {
         if (isLevelFinished || playerScript == null) return;
 
-        // --- 1. IDÕZÍTETT RÖGZÍTÉS ---
         if (!tempPosRecorded && Time.timeSinceLevelLoad >= currentTrapTime)
         {
-            // Megpróbálunk talajt találni a játékos ALATT
             Vector3? groundPos = GetValidGroundPos(playerScript.transform.position);
-
-            if (groundPos.HasValue) // Ha találtunk érvényes talajt
+            if (groundPos.HasValue)
             {
                 tempTrapPosition = groundPos.Value;
                 tempPosRecorded = true;
-                Debug.Log("SIKER! Csapda rögzítve (Levegõbõl vetítve is).");
             }
         }
 
-        // --- 2. FOLYAMATOS NAPLÓZÁS (History) ---
         if (Time.time >= nextSampleTime)
         {
             Vector3? groundPos = GetValidGroundPos(playerScript.transform.position);
-
-            if (groundPos.HasValue)
-            {
-                validPositionsHistory.Add(groundPos.Value);
-            }
+            if (groundPos.HasValue) validPositionsHistory.Add(groundPos.Value);
             nextSampleTime = Time.time + historySampleRate;
         }
     }
 
-    // Ez az ÚJ FÜGGVÉNY a lelke mindennek!
-    // Megkeresi a földet a játékos alatt, és ellenõrzi, hogy jó-e a hely.
-    Vector3? GetValidGroundPos(Vector3 playerPos)
+    public void CollectKey()
     {
-        // 1. RAYCAST LEFELÉ (max 20 méter mélyre)
-        RaycastHit2D hit = Physics2D.Raycast(playerPos, Vector2.down, 20f, playerScript.groundLayer);
+        hasKey = true;
+    }
 
-        // Ha nem találtunk földet (pl. szakadék felett vagyunk), akkor NULL-t adunk vissza
-        if (hit.collider == null) return null;
+    public bool IsKeyCollected()
+    {
+        if (!levelRequiresKey) return true;
+        return hasKey;
+    }
 
-        Vector3 candidatePos = hit.point; // Ez a pont a talaj teteje
+    // --- EZT MÓDOSÍTOTTUK ---
+    void SpawnKey()
+    {
+        if (keyPrefab == null) return;
 
-        // 2. VALIDÁCIÓ (Most már a TALÁLATI PONTOT vizsgáljuk)
-        if (IsPositionSafe(candidatePos))
+        // 1. ESET: HA VAN KÉZZEL BEÁLLÍTOTT HELY
+        if (manualKeyLocation != null)
         {
-            return candidatePos;
+            // Egyszerûen lerakjuk oda a kulcsot
+            Instantiate(keyPrefab, manualKeyLocation.position, Quaternion.identity);
+            Debug.Log("Kulcs lerakva a fix pontra.");
+            return; // Kilépünk, nem kell randomolás
         }
 
+        // 2. ESET: HA NINCS FIX HELY -> MARAD A RANDOM (Régi logika)
+        for (int i = 0; i < 30; i++)
+        {
+            float randomX = Random.Range(levelMinX, levelMaxX);
+            Vector3 searchPos = new Vector3(randomX, keySpawnHeight, 0);
+            Vector3? validPos = GetValidGroundPos(searchPos);
+            if (validPos.HasValue)
+            {
+                Instantiate(keyPrefab, validPos.Value + Vector3.up * 0.5f, Quaternion.identity);
+                return;
+            }
+        }
+    }
+
+    // ... (A többi függvény - GetValidGroundPos, IsPositionSafe, stb. - VÁLTOZATLAN) ...
+
+    Vector3? GetValidGroundPos(Vector3 startSearchPos)
+    {
+        RaycastHit2D hit = Physics2D.Raycast(startSearchPos, Vector2.down, 20f, playerScript.groundLayer);
+        if (hit.collider == null) return null;
+        Vector3 candidatePos = hit.point;
+        if (IsPositionSafe(candidatePos)) return candidatePos;
         return null;
     }
 
-    // Ez ellenõrzi a szabályokat (távolság, plafon, stb.)
     bool IsPositionSafe(Vector3 pos)
     {
-        // A. Start zóna ellenõrzés
         if (Vector3.Distance(pos, startPosition) < safeZoneRadius) return false;
-
-        // B. Más csapdák közelsége
         foreach (Vector3 existingTrap in trapPositions)
         {
             if (Vector3.Distance(pos, existingTrap) < minTrapDistance) return false;
         }
-
-        // C. Plafon ellenõrzés (Innen felfelé lövünk)
         RaycastHit2D hitCeiling = Physics2D.Raycast(pos, Vector2.up, minCeilingHeight, playerScript.groundLayer);
         if (hitCeiling.collider != null) return false;
-
-        // D. Szakadék széle ellenõrzés
         Vector2 checkLeft = new Vector2(pos.x - edgeCheckDistance, pos.y + 0.5f);
         Vector2 checkRight = new Vector2(pos.x + edgeCheckDistance, pos.y + 0.5f);
-
         bool groundLeft = Physics2D.Raycast(checkLeft, Vector2.down, 1.5f, playerScript.groundLayer);
         bool groundRight = Physics2D.Raycast(checkRight, Vector2.down, 1.5f, playerScript.groundLayer);
-
         if (!groundLeft || !groundRight) return false;
-
         return true;
     }
 
@@ -168,32 +188,16 @@ public class GameManager : MonoBehaviour
         if (isLevelFinished) return;
         isLevelFinished = true;
 
-        if (tempPosRecorded)
+        if (tempPosRecorded) trapPositions.Add(tempTrapPosition);
+        else if (validPositionsHistory.Count > 0)
         {
-            trapPositions.Add(tempTrapPosition);
-        }
-        else
-        {
-            // VÉSZTERV: Ha még a levegõ-vizsgálattal sem sikerült (nagyon ritka),
-            // veszünk egyet a naplóból.
-            if (validPositionsHistory.Count > 0)
-            {
-                int randomIndex = Random.Range(0, validPositionsHistory.Count);
-                trapPositions.Add(validPositionsHistory[randomIndex]);
-                Debug.Log("Vészterv: Random pozíció a naplóból.");
-            }
-            else
-            {
-                Debug.LogWarning("HIHETETLEN: Egész körben nem volt érvényes hely!");
-            }
+            int randomIndex = Random.Range(0, validPositionsHistory.Count);
+            trapPositions.Add(validPositionsHistory[randomIndex]);
         }
 
         currentRound++;
 
-        if (currentRound > maxRounds)
-        {
-            StartCoroutine(WinSequence());
-        }
+        if (currentRound > maxRounds) StartCoroutine(WinSequence());
         else
         {
             Time.timeScale = 1;
@@ -204,33 +208,18 @@ public class GameManager : MonoBehaviour
     IEnumerator WinSequence()
     {
         if (winPanel != null) winPanel.SetActive(true);
-
         int currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
         int nextSceneIndex = currentSceneIndex + 1;
         bool hasNextLevel = nextSceneIndex < SceneManager.sceneCountInBuildSettings;
 
-        if (winText != null)
-        {
-            winText.text = hasNextLevel ? "LEVEL COMPLETE!" : "YOU WON THE GAME!";
-        }
-
-        if (playerScript != null)
-        {
-            playerScript.gameObject.SetActive(false);
-        }
+        if (winText != null) winText.text = hasNextLevel ? "LEVEL COMPLETE!" : "YOU WON THE GAME!";
+        if (playerScript != null) playerScript.gameObject.SetActive(false);
 
         yield return new WaitForSeconds(4);
-
         ResetStaticVariables();
 
-        if (hasNextLevel)
-        {
-            SceneManager.LoadScene(nextSceneIndex);
-        }
-        else
-        {
-            SceneManager.LoadScene(0);
-        }
+        if (hasNextLevel) SceneManager.LoadScene(nextSceneIndex);
+        else SceneManager.LoadScene(0);
     }
 
     private void ResetStaticVariables()
