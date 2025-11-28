@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2739391381867118062}
   - component: {fileID: 7900277515634264514}
-  - component: {fileID: 454080336613859651}
+  - component: {fileID: 3283221999711165814}
   m_Layer: 0
   m_Name: Trap
   m_TagString: Trap
@@ -77,8 +77,8 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
-  m_Sprite: {fileID: -2413806693520163455, guid: a86470a33a6bf42c4b3595704624658b, type: 3}
-  m_Color: {r: 1, g: 0, b: 0, a: 1}
+  m_Sprite: {fileID: 464512656, guid: 714ee9a99b2927f44a4e547db436a790, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -88,8 +88,8 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
---- !u!58 &454080336613859651
-CircleCollider2D:
+--- !u!60 &3283221999711165814
+PolygonCollider2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -123,4 +123,26 @@ CircleCollider2D:
   m_CompositeOperation: 0
   m_CompositeOrder: 0
   m_Offset: {x: 0, y: 0}
-  m_Radius: 0.5
+  m_SpriteTilingProperty:
+    border: {x: 0, y: 0, z: 0, w: 0}
+    pivot: {x: 0.5, y: 0.5}
+    oldSize: {x: 1, y: 1}
+    newSize: {x: 1, y: 1}
+    adaptiveTilingThreshold: 0.5
+    drawMode: 0
+    adaptiveTiling: 0
+  m_AutoTiling: 0
+  m_Points:
+    m_Paths:
+    - - {x: 0.5004884, y: -0.33154297}
+      - {x: 0.50927746, y: -0.30517578}
+      - {x: 0.50927746, y: 0.32763672}
+      - {x: 0.37744153, y: 0.39794922}
+      - {x: 0.30712903, y: 0.51220703}
+      - {x: -0.3168944, y: 0.51220703}
+      - {x: -0.33447254, y: 0.50341797}
+      - {x: -0.5014647, y: 0.31884766}
+      - {x: -0.5014647, y: -0.30517578}
+      - {x: -0.2993163, y: -0.49853516}
+      - {x: 0.30712903, y: -0.49853516}
+  m_UseDelaunayMesh: 0

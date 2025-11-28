@@ -2,6 +2,10 @@ using UnityEngine;
 
 public class Goal : MonoBehaviour
 {
+    [Header("Képek beállítása")]
+    public Sprite closedSprite; // Ide húzd be a "ZÁRT" állapot képét (pl. piros zászló)
+    public Sprite openSprite;   // Ide húzd be a "NYITOTT" állapot képét (pl. zöld zászló)
+
     private SpriteRenderer sr;
     private GameManager gameManager;
 
@@ -9,20 +13,33 @@ public class Goal : MonoBehaviour
     {
         sr = GetComponent<SpriteRenderer>();
         gameManager = FindAnyObjectByType<GameManager>();
+
+        // Visszaállítjuk a színezést fehérre, hogy a sprite-ok eredeti színe látszódjon
+        // (Mert a régi kód elszínezte pirosra/zöldre a képet)
+        sr.color = Color.white;
     }
 
     void Update()
     {
-        // Folyamatosan színezzük a kaput az állapotnak megfelelõen
         if (gameManager != null && sr != null)
         {
+            // Ellenõrizzük a kulcs állapotát
             if (gameManager.IsKeyCollected())
             {
-                sr.color = Color.green; // NYITVA (Zöld)
+                // HA NYITVA: Lecseréljük a képet a nyitott verzióra
+                // (A feltétel azért kell, hogy ne cserélgesse minden képkockában feleslegesen)
+                if (sr.sprite != openSprite)
+                {
+                    sr.sprite = openSprite;
+                }
             }
             else
             {
-                sr.color = Color.red;   // ZÁRVA (Piros)
+                // HA ZÁRVA: Lecseréljük a képet a zárt verzióra
+                if (sr.sprite != closedSprite)
+                {
+                    sr.sprite = closedSprite;
+                }
             }
         }
     }

@@ -4,13 +4,17 @@ public class PlayerMovement : MonoBehaviour
 {
     [Header("Mozgás Beállítások")]
     public float moveSpeed = 5f;
-    public float jumpForce = 10f;       // Ezt állítsd be az Inspectorban (pl. 12-14)
+    public float jumpForce = 10f;
     public int extraJumps = 1;
     public float fallThreshold = -10f;
 
     [Header("Ugrás Finomhangolás")]
-    [Range(0, 1)] public float jumpCutMultiplier = 0.5f; // Mennyire vágja el az ugrást, ha elengeded a gombot (0.5 = felére)
-    public float gravityScale = 2.5f; // Az alap gravitáció erőssége (Ezt használjuk a Rigidbody-n)
+    [Range(0, 1)] public float jumpCutMultiplier = 0.5f;
+    public float gravityScale = 2.5f;
+
+    // --- ÚJ VÁLTOZÓ ---
+    [Header("Animáció")]
+    public Animator animator; // Ide húzzuk be az Animatort
 
     private Rigidbody2D rb;
     public bool isGrounded;
@@ -25,16 +29,21 @@ public class PlayerMovement : MonoBehaviour
     {
         rb = GetComponent<Rigidbody2D>();
         jumpCounter = extraJumps;
-
-        // Beállítjuk a Rigidbody gravitációját a kód alapján, hogy itt tudd szabályozni
         rb.gravityScale = gravityScale;
+
+        // Ha elfelejtetted volna behúzni, megpróbálja automatikusan megtalálni
+        if (animator == null) animator = GetComponent<Animator>();
     }
 
     void Update()
     {
+        // --- HIBAJAVÍTÁS: HA ÁLL AZ IDŐ (PAUSE), NE CSINÁLJON SEMMIT ---
+        if (Time.timeScale == 0f) return;
+
         if (isDead)
         {
             rb.linearVelocity = Vector2.zero;
+            // Opcionális: Ha van halál animáció, itt játszanánk le
             return;
         }
 
@@ -42,7 +51,6 @@ public class PlayerMovement : MonoBehaviour
         bool wasGrounded = isGrounded;
         isGrounded = Physics2D.OverlapCircle(groundCheck.position, checkRadius, groundLayer);
 
-        // Reseteljük az ugrásokat
         if (isGrounded && rb.linearVelocity.y <= 0)
         {
             jumpCounter = extraJumps;
@@ -52,11 +60,23 @@ public class PlayerMovement : MonoBehaviour
         float moveInput = Input.GetAxisRaw("Horizontal");
         rb.linearVelocity = new Vector2(moveInput * moveSpeed, rb.linearVelocity.y);
 
-        // Forgatás
+        // Forgatás (Flip)
         if (moveInput > 0) transform.localScale = new Vector3(1, 1, 1);
         else if (moveInput < 0) transform.localScale = new Vector3(-1, 1, 1);
 
-        // --- UGRÁS (INDÍTÁS) ---
+        // --- ANIMÁCIÓ FRISSÍTÉSE ---
+        if (animator != null)
+        {
+            // Futás sebesség átadása (Ez már megvolt)
+            animator.SetFloat("Speed", Mathf.Abs(moveInput));
+
+            // --- EZT ADTUK HOZZÁ: ---
+            // Ha NEM vagyunk a földön (!isGrounded), akkor ugrunk (true)
+            // Ha a földön vagyunk (isGrounded), akkor nem ugrunk (false)
+            animator.SetBool("IsJumping", !isGrounded);
+        }
+
+        // --- UGRÁS ---
         if (Input.GetButtonDown("Jump"))
         {
             if (isGrounded)
@@ -70,11 +90,8 @@ public class PlayerMovement : MonoBehaviour
             }
         }
 
-        // --- VÁLTOZTATHATÓ UGRÁSMAGASSÁG (EZ A LÉNYEG!) ---
-        // Ha elengedjük a gombot ÉS éppen felfelé mozgunk...
         if (Input.GetButtonUp("Jump") && rb.linearVelocity.y > 0)
         {
-            // ...akkor a sebességet megfelezzük (levágjuk az ugrást)
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y * jumpCutMultiplier);
         }
 
@@ -86,9 +103,14 @@ public class PlayerMovement : MonoBehaviour
 
     void Jump()
     {
-        // Nullázzuk az Y sebességet a konzisztens ugrásért
         rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0);
         rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
+
+        // --- HANG LEJÁTSZÁSA ---
+        if (AudioManager.instance != null)
+        {
+            AudioManager.instance.PlayJump();
+        }
     }
 
     private void OnTriggerEnter2D(Collider2D collision)
