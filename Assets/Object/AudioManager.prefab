@@ -48,7 +48,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   musicSource: {fileID: 7249806211976721548}
   sfxSource: {fileID: 6580025934923089924}
-  backgroundMusic: {fileID: 8300000, guid: 036b28b4f550e9b4daaf80692947f724, type: 3}
+  backgroundMusic: {fileID: 8300000, guid: a9785fb6e4ba5024db6abe53496d5c87, type: 3}
   jumpSound: {fileID: 8300000, guid: daa5204d35bed1046a44255164913833, type: 3}
   keyPickupSound: {fileID: 8300000, guid: 4270899c9808fb24bab9e1897dbcf6a5, type: 3}
   deathSound: {fileID: 8300000, guid: fd71130905f710c49b3970ebf44b42d7, type: 3}
@@ -64,10 +64,10 @@ AudioSource:
   m_Enabled: 1
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
-  m_audioClip: {fileID: 8300000, guid: 036b28b4f550e9b4daaf80692947f724, type: 3}
-  m_Resource: {fileID: 8300000, guid: 036b28b4f550e9b4daaf80692947f724, type: 3}
+  m_audioClip: {fileID: 8300000, guid: a9785fb6e4ba5024db6abe53496d5c87, type: 3}
+  m_Resource: {fileID: 8300000, guid: a9785fb6e4ba5024db6abe53496d5c87, type: 3}
   m_PlayOnAwake: 1
-  m_Volume: 0.3
+  m_Volume: 0.1
   m_Pitch: 1
   Loop: 1
   Mute: 0
