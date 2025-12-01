@@ -48,7 +48,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   musicSource: {fileID: 7249806211976721548}
   sfxSource: {fileID: 6580025934923089924}
-  backgroundMusic: {fileID: 8300000, guid: a9785fb6e4ba5024db6abe53496d5c87, type: 3}
+  menuMusic: {fileID: 8300000, guid: 9e8c9cb8328db1f498d209cd1fa1f5a5, type: 3}
+  gameMusicPlaylist:
+  - {fileID: 8300000, guid: d5e6dbce7dc8850409e608c67580a1d5, type: 3}
+  - {fileID: 8300000, guid: cebdcfd446da2a4469aa08bc2e946ff2, type: 3}
+  - {fileID: 8300000, guid: 023a51830a666304eae7f0131baa560a, type: 3}
   jumpSound: {fileID: 8300000, guid: daa5204d35bed1046a44255164913833, type: 3}
   keyPickupSound: {fileID: 8300000, guid: 4270899c9808fb24bab9e1897dbcf6a5, type: 3}
   deathSound: {fileID: 8300000, guid: fd71130905f710c49b3970ebf44b42d7, type: 3}
@@ -64,8 +68,8 @@ AudioSource:
   m_Enabled: 1
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
-  m_audioClip: {fileID: 8300000, guid: a9785fb6e4ba5024db6abe53496d5c87, type: 3}
-  m_Resource: {fileID: 8300000, guid: a9785fb6e4ba5024db6abe53496d5c87, type: 3}
+  m_audioClip: {fileID: 0}
+  m_Resource: {fileID: 0}
   m_PlayOnAwake: 1
   m_Volume: 0.1
   m_Pitch: 1

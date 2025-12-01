@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2739391381867118062}
   - component: {fileID: 7900277515634264514}
-  - component: {fileID: 3283221999711165814}
+  - component: {fileID: 4403090303529109832}
   m_Layer: 0
   m_Name: Trap
   m_TagString: Trap
@@ -77,7 +77,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
-  m_Sprite: {fileID: 464512656, guid: 714ee9a99b2927f44a4e547db436a790, type: 3}
+  m_Sprite: {fileID: 404897883756998166, guid: a84efcb4ddbb329428d2ce4aabab7b33, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -88,7 +88,7 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
---- !u!60 &3283221999711165814
+--- !u!60 &4403090303529109832
 PolygonCollider2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -126,7 +126,7 @@ PolygonCollider2D:
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0.5, y: 0.5}
-    oldSize: {x: 1, y: 1}
+    oldSize: {x: 1, y: 0.5555556}
     newSize: {x: 1, y: 1}
     adaptiveTilingThreshold: 0.5
     drawMode: 0
@@ -134,15 +134,10 @@ PolygonCollider2D:
   m_AutoTiling: 0
   m_Points:
     m_Paths:
-    - - {x: 0.5004884, y: -0.33154297}
-      - {x: 0.50927746, y: -0.30517578}
-      - {x: 0.50927746, y: 0.32763672}
-      - {x: 0.37744153, y: 0.39794922}
-      - {x: 0.30712903, y: 0.51220703}
-      - {x: -0.3168944, y: 0.51220703}
-      - {x: -0.33447254, y: 0.50341797}
-      - {x: -0.5014647, y: 0.31884766}
-      - {x: -0.5014647, y: -0.30517578}
-      - {x: -0.2993163, y: -0.49853516}
-      - {x: 0.30712903, y: -0.49853516}
+    - - {x: -0.3888889, y: 0.2777778}
+      - {x: -0.5, y: 0.16666667}
+      - {x: -0.5, y: -0.2777778}
+      - {x: 0.5, y: -0.2777778}
+      - {x: 0.5, y: 0.16666667}
+      - {x: 0.44444445, y: 0.2777778}
   m_UseDelaunayMesh: 0

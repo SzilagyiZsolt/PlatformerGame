@@ -12,9 +12,10 @@ public class PlayerMovement : MonoBehaviour
     [Range(0, 1)] public float jumpCutMultiplier = 0.5f;
     public float gravityScale = 2.5f;
 
-    // --- ÚJ VÁLTOZÓ ---
-    [Header("Animáció")]
-    public Animator animator; // Ide húzzuk be az Animatort
+    [Header("Animáció & Effektek")]
+    public Animator animator;
+    public ParticleSystem dust;
+    public GameObject deathEffect; // <--- EZ AZ ÚJ VÁLTOZÓ (Prefab)
 
     private Rigidbody2D rb;
     public bool isGrounded;
@@ -30,53 +31,43 @@ public class PlayerMovement : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         jumpCounter = extraJumps;
         rb.gravityScale = gravityScale;
-
-        // Ha elfelejtetted volna behúzni, megpróbálja automatikusan megtalálni
         if (animator == null) animator = GetComponent<Animator>();
     }
 
     void Update()
     {
-        // --- HIBAJAVÍTÁS: HA ÁLL AZ IDŐ (PAUSE), NE CSINÁLJON SEMMIT ---
         if (Time.timeScale == 0f) return;
-
         if (isDead)
         {
             rb.linearVelocity = Vector2.zero;
-            // Opcionális: Ha van halál animáció, itt játszanánk le
             return;
         }
 
-        // --- Talaj ellenőrzés ---
         bool wasGrounded = isGrounded;
         isGrounded = Physics2D.OverlapCircle(groundCheck.position, checkRadius, groundLayer);
+
+        if (isGrounded && !wasGrounded)
+        {
+            CreateDust();
+        }
 
         if (isGrounded && rb.linearVelocity.y <= 0)
         {
             jumpCounter = extraJumps;
         }
 
-        // --- Mozgás ---
         float moveInput = Input.GetAxisRaw("Horizontal");
         rb.linearVelocity = new Vector2(moveInput * moveSpeed, rb.linearVelocity.y);
 
-        // Forgatás (Flip)
         if (moveInput > 0) transform.localScale = new Vector3(1, 1, 1);
         else if (moveInput < 0) transform.localScale = new Vector3(-1, 1, 1);
 
-        // --- ANIMÁCIÓ FRISSÍTÉSE ---
         if (animator != null)
         {
-            // Futás sebesség átadása (Ez már megvolt)
             animator.SetFloat("Speed", Mathf.Abs(moveInput));
-
-            // --- EZT ADTUK HOZZÁ: ---
-            // Ha NEM vagyunk a földön (!isGrounded), akkor ugrunk (true)
-            // Ha a földön vagyunk (isGrounded), akkor nem ugrunk (false)
             animator.SetBool("IsJumping", !isGrounded);
         }
 
-        // --- UGRÁS ---
         if (Input.GetButtonDown("Jump"))
         {
             if (isGrounded)
@@ -95,40 +86,48 @@ public class PlayerMovement : MonoBehaviour
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y * jumpCutMultiplier);
         }
 
-        if (transform.position.y < fallThreshold)
-        {
-            Die();
-        }
+        if (transform.position.y < fallThreshold) Die();
     }
 
     void Jump()
     {
         rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0);
         rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
+        CreateDust();
+        if (AudioManager.instance != null) AudioManager.instance.PlayJump();
+    }
 
-        // --- HANG LEJÁTSZÁSA ---
-        if (AudioManager.instance != null)
-        {
-            AudioManager.instance.PlayJump();
-        }
+    void CreateDust()
+    {
+        if (dust != null) dust.Play();
     }
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        if (collision.CompareTag("Goal"))
-        {
-            FindAnyObjectByType<GameManager>().LevelComplete();
-        }
-        else if (collision.CompareTag("Trap"))
-        {
-            Die();
-        }
+        if (collision.CompareTag("Goal")) FindAnyObjectByType<GameManager>().LevelComplete();
+        else if (collision.CompareTag("Trap")) Die();
     }
 
     void Die()
     {
+        // Ha már halottak vagyunk, ne fusson le újra (hogy ne legyen dupla hang/effekt)
+        if (isDead) return;
+
         isDead = true;
+
+        // --- HALÁL EFFEKT LÉTREHOZÁSA ---
+        if (deathEffect != null)
+        {
+            Instantiate(deathEffect, transform.position, Quaternion.identity);
+        }
+
+        // Eltüntetjük a karaktert (hogy csak az effekt maradjon)
+        // Nem Destroy-oljuk azonnal, mert akkor a script is leállna!
+        // Csak a kinézetét kapcsoljuk le:
+        GetComponent<SpriteRenderer>().enabled = false;
+        GetComponent<Collider2D>().enabled = false;
+
         FindAnyObjectByType<GameManager>().GameOver();
-        Destroy(gameObject);
+        if (AudioManager.instance != null) AudioManager.instance.PlayDeath();
     }
 }
