@@ -6,12 +6,12 @@ using System.Collections;
 
 public class GameManager : MonoBehaviour
 {
-    [Header("UI Menük (ÚJ)")]
-    public GameObject pauseMenuUI; // A szünet menü panelje
-    public GameObject gameUI;      // A játék közbeni feliratok (pl. Round számláló)
+    [Header("UI Menük")]
+    public GameObject pauseMenuUI;
+    public GameObject gameUI;
 
     [Header("Játék Elemek")]
-    public GameObject restartButton; // Game Over gomb
+    public GameObject restartButton;
     public GameObject trapPrefab;
     public PlayerMovement playerScript;
     public int maxRounds = 7;
@@ -19,23 +19,22 @@ public class GameManager : MonoBehaviour
     [Header("Kulcs Rendszer")]
     public bool levelRequiresKey = true;
     public GameObject keyPrefab;
-    public Transform manualKeyLocation; // Fix pont
-
-    // Random beállítások
+    public Transform manualKeyLocation;
     public float levelMinX = -10f;
     public float levelMaxX = 20f;
     public float keySpawnHeight = 10f;
 
-    [Header("Idõzítés")]
-    public float minTrapTime = 5.0f;
-    public float maxTrapTime = 10.0f;
-
     [Header("Biztonsági Zónák")]
-    public float safeZoneRadius = 3.0f;
+    public float safeZoneRadius = 3.0f;     // Start körüli védett zóna
+    public float safeGoalRadius = 3.0f;     // Cél körüli védett zóna
     public float minCeilingHeight = 4.0f;
     public float edgeCheckDistance = 1.0f;
     public float minTrapDistance = 1.5f;
     public float trapOffsetY = -0.2f;
+
+    [Header("Útvonal Rögzítés (Breadcrumbs)")]
+    public float historySampleRate = 0.01f; // Milyen sûrûn (mp) rögzítsünk
+    public float minRecordDistance = 0.5f; // Minimum távolság az elõzõ ponttól
 
     [Header("HUD Elemek")]
     public TextMeshProUGUI roundText;
@@ -45,40 +44,42 @@ public class GameManager : MonoBehaviour
     // --- BELSÕ VÁLTOZÓK ---
     private static List<Vector3> trapPositions = new List<Vector3>();
     private static int currentRound = 1;
-    private Vector3 tempTrapPosition;
-    private bool tempPosRecorded = false;
+
     private bool isLevelFinished = false;
     private Vector3 startPosition;
-    private float currentTrapTime;
+    private Vector3 goalPosition;
     private bool hasKey = false;
-
-    // Pause állapot
     private bool isPaused = false;
 
+    // Ebben gyûjtjük a játékos által bejárt ÉRVÉNYES pontokat
     private List<Vector3> validPositionsHistory = new List<Vector3>();
-    private float historySampleRate = 0.2f;
     private float nextSampleTime = 0f;
 
     void Start()
     {
         isLevelFinished = false;
-        tempPosRecorded = false;
         hasKey = false;
         isPaused = false;
-        Time.timeScale = 1f; // Biztos ami biztos, elindítjuk az idõt
+        Time.timeScale = 1f;
 
+        // Lista törlése minden kör elején
         validPositionsHistory.Clear();
-        currentTrapTime = Random.Range(minTrapTime, maxTrapTime);
 
         if (playerScript != null) startPosition = playerScript.transform.position;
-        if (roundText != null) roundText.text = $"Round: {currentRound} / {maxRounds}";
 
-        // Menük alaphelyzete
+        // Megkeressük a célt a védelemhez
+        GameObject goalObj = GameObject.FindGameObjectWithTag("Goal");
+        if (goalObj != null) goalPosition = goalObj.transform.position;
+
+        if (roundText != null) roundText.text = $"Round: {currentRound}/{maxRounds}";
+
+        // UI alaphelyzet
         if (winPanel != null) winPanel.SetActive(false);
         if (restartButton != null) restartButton.SetActive(false);
         if (pauseMenuUI != null) pauseMenuUI.SetActive(false);
         if (gameUI != null) gameUI.SetActive(true);
 
+        // Csapdák lerakása
         if (trapPrefab != null)
         {
             foreach (Vector3 pos in trapPositions)
@@ -93,7 +94,7 @@ public class GameManager : MonoBehaviour
 
     void Update()
     {
-        // --- PAUSE KEZELÉS (ÚJ) ---
+        // Pause kezelés
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             if (isPaused) ResumeGame();
@@ -102,63 +103,53 @@ public class GameManager : MonoBehaviour
 
         if (isLevelFinished || playerScript == null) return;
 
-        // Csapda rögzítés logika (a régi)
-        if (!tempPosRecorded && Time.timeSinceLevelLoad >= currentTrapTime)
-        {
-            Vector3? groundPos = GetValidGroundPos(playerScript.transform.position);
-            if (groundPos.HasValue)
-            {
-                tempTrapPosition = groundPos.Value;
-                tempPosRecorded = true;
-            }
-        }
-
-        // History logika
+        // --- ÚTVONAL RÖGZÍTÉS (A LÉNYEG!) ---
         if (Time.time >= nextSampleTime)
         {
-            Vector3? groundPos = GetValidGroundPos(playerScript.transform.position);
-            if (groundPos.HasValue) validPositionsHistory.Add(groundPos.Value);
+            // Megnézzük, hogy az aktuális pozíció alatt van-e érvényes talaj
+            Vector3? validPos = GetValidGroundPos(playerScript.transform.position);
+
+            if (validPos.HasValue)
+            {
+                // Csak akkor adjuk hozzá, ha elég messze van az elõzõtõl (ne spameljük tele egy helyben állva)
+                if (validPositionsHistory.Count == 0 ||
+                    Vector3.Distance(validPos.Value, validPositionsHistory[validPositionsHistory.Count - 1]) > minRecordDistance)
+                {
+                    validPositionsHistory.Add(validPos.Value);
+                }
+            }
+
             nextSampleTime = Time.time + historySampleRate;
         }
     }
 
     // --- MENÜ FUNKCIÓK ---
-
     public void ResumeGame()
     {
         if (pauseMenuUI != null) pauseMenuUI.SetActive(false);
         if (gameUI != null) gameUI.SetActive(true);
-        Time.timeScale = 1f; // Idõ újraindítása
+        Time.timeScale = 1f;
         isPaused = false;
     }
 
     void PauseGame()
     {
         if (pauseMenuUI != null) pauseMenuUI.SetActive(true);
-        if (gameUI != null) gameUI.SetActive(false); // Eltüntetjük a HUD-ot zavaró tényezõként
-        Time.timeScale = 0f; // Idõ megállítása
+        if (gameUI != null) gameUI.SetActive(false);
+        Time.timeScale = 0f;
         isPaused = true;
     }
 
     public void LoadMainMenu()
     {
-        Time.timeScale = 1f; // Fontos: vissza kell állítani az idõt kilépés elõtt!
-
-        // Opcionális: Ha kilépsz a fõmenübe, törlöd a csapdákat? 
-        // Általában igen, tiszta lappal kezdjen legközelebb.
+        Time.timeScale = 1f;
         ResetStaticVariables();
-
-        SceneManager.LoadScene(0); // A 0. index a MainMenu
+        SceneManager.LoadScene(0);
     }
 
-    // --- KULCS & JÁTÉK LOGIKA (Változatlan) ---
+    // --- JÁTÉK LOGIKA ---
 
-    public void CollectKey()
-    {
-        hasKey = true;
-        // --- HANG ---
-        if (AudioManager.instance != null) AudioManager.instance.PlayKeyPickup();
-    }
+    public void CollectKey() { hasKey = true; }
     public bool IsKeyCollected() { return !levelRequiresKey || hasKey; }
 
     void SpawnKey()
@@ -172,6 +163,7 @@ public class GameManager : MonoBehaviour
         for (int i = 0; i < 30; i++)
         {
             float randomX = Random.Range(levelMinX, levelMaxX);
+            // Itt is a javított függvényt használjuk
             Vector3? validPos = GetValidGroundPos(new Vector3(randomX, keySpawnHeight, 0));
             if (validPos.HasValue)
             {
@@ -181,23 +173,48 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    Vector3? GetValidGroundPos(Vector3 startSearchPos)
+    // --- VALIDÁCIÓS FÜGGVÉNYEK ---
+
+    Vector3? GetValidGroundPos(Vector3 searchPos)
     {
-        RaycastHit2D hit = Physics2D.Raycast(startSearchPos, Vector2.down, 20f, playerScript.groundLayer);
-        if (hit.collider == null) return null;
-        if (IsPositionSafe(hit.point)) return hit.point;
+        // Kicsit fentrõl (0.5) indítjuk a sugarat, hogy biztosan lássa a talajt a lábunk alatt
+        Vector2 origin = new Vector2(searchPos.x, searchPos.y + 0.5f);
+
+        // Lefelé lövünk egy sugarat
+        RaycastHit2D hit = Physics2D.Raycast(origin, Vector2.down, 10f, playerScript.groundLayer);
+
+        // Debug vonal a Scene nézetben (piros)
+        Debug.DrawRay(origin, Vector2.down * 2f, Color.red, 0.1f);
+
+        if (hit.collider == null) return null; // Levegõben vagyunk
+
+        // Ha találtunk talajt, megnézzük, hogy biztonságos-e a pont
+        if (IsPositionSafe(hit.point))
+        {
+            return hit.point;
+        }
+
         return null;
     }
 
     bool IsPositionSafe(Vector3 pos)
     {
+        // 1. Start zóna védelme
         if (Vector3.Distance(pos, startPosition) < safeZoneRadius) return false;
+
+        // 2. Cél zóna védelme (FONTOS!)
+        if (goalPosition != Vector3.zero && Vector3.Distance(pos, goalPosition) < safeGoalRadius) return false;
+
+        // 3. Másik csapda közelsége
         foreach (Vector3 existingTrap in trapPositions)
         {
             if (Vector3.Distance(pos, existingTrap) < minTrapDistance) return false;
         }
+
+        // 4. Plafon ellenõrzés
         if (Physics2D.Raycast(pos, Vector2.up, minCeilingHeight, playerScript.groundLayer).collider != null) return false;
 
+        // 5. Szakadék széle ellenõrzés
         Vector2 checkLeft = new Vector2(pos.x - edgeCheckDistance, pos.y + 0.5f);
         Vector2 checkRight = new Vector2(pos.x + edgeCheckDistance, pos.y + 0.5f);
         if (!Physics2D.Raycast(checkLeft, Vector2.down, 1.5f, playerScript.groundLayer) ||
@@ -208,9 +225,14 @@ public class GameManager : MonoBehaviour
 
     public void GameOver()
     {
-        if (restartButton != null) restartButton.SetActive(true);
-        // --- HANG ---
-        if (AudioManager.instance != null) AudioManager.instance.PlayDeath();
+        if (isLevelFinished) return;
+        StartCoroutine(AutoRestartSequence());
+    }
+
+    IEnumerator AutoRestartSequence()
+    {
+        yield return new WaitForSeconds(2f);
+        RestartGame();
     }
 
     public void RestartGame()
@@ -223,8 +245,24 @@ public class GameManager : MonoBehaviour
     {
         if (isLevelFinished) return;
         isLevelFinished = true;
-        if (tempPosRecorded) trapPositions.Add(tempTrapPosition);
-        else if (validPositionsHistory.Count > 0) trapPositions.Add(validPositionsHistory[Random.Range(0, validPositionsHistory.Count)]);
+
+        // --- ÚJ KIVÁLASZTÁS A RÖGZÍTETT LISTÁBÓL ---
+        if (validPositionsHistory.Count > 0)
+        {
+            // Választunk egy véletlenszerû pontot a listából
+            // Mivel a listába eleve csak valid pontok kerültek be (IsPositionSafe-fel ellenõrizve),
+            // ez a pont 100%-ig biztonságos lesz!
+            int randomIndex = Random.Range(0, validPositionsHistory.Count);
+            trapPositions.Add(validPositionsHistory[randomIndex]);
+
+            Debug.Log($"Új csapda kiválasztva {validPositionsHistory.Count} rögzített pont közül.");
+        }
+        else
+        {
+            // Ha valamiért üres maradt a lista (pl. végig a levegõben voltál),
+            // akkor NEM rakunk le csapdát, hogy ne rontsuk el a pályát.
+            Debug.LogWarning("Nem sikerült érvényes útvonalat rögzíteni ebben a körben.");
+        }
 
         currentRound++;
         if (currentRound > maxRounds) StartCoroutine(WinSequence());
@@ -238,7 +276,7 @@ public class GameManager : MonoBehaviour
     IEnumerator WinSequence()
     {
         if (winPanel != null) winPanel.SetActive(true);
-        if (gameUI != null) gameUI.SetActive(false); // HUD elrejtése ünnepléskor
+        if (gameUI != null) gameUI.SetActive(false);
 
         int nextSceneIndex = SceneManager.GetActiveScene().buildIndex + 1;
         bool hasNextLevel = nextSceneIndex < SceneManager.sceneCountInBuildSettings;
@@ -246,14 +284,11 @@ public class GameManager : MonoBehaviour
         if (winText != null) winText.text = hasNextLevel ? "LEVEL COMPLETE!" : "YOU WON THE GAME!";
         if (playerScript != null) playerScript.gameObject.SetActive(false);
 
-        // --- HANG ---
-        if (AudioManager.instance != null) AudioManager.instance.PlayWin();
-
         yield return new WaitForSeconds(4);
         ResetStaticVariables();
 
         if (hasNextLevel) SceneManager.LoadScene(nextSceneIndex);
-        else SceneManager.LoadScene(0); // Vissza a Fõmenübe
+        else SceneManager.LoadScene(0);
     }
 
     private void ResetStaticVariables()
