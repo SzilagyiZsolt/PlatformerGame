@@ -104,11 +104,18 @@ public class PlayerMovement : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        if (collision.CompareTag("Goal")) FindAnyObjectByType<GameManager>().LevelComplete();
-        else if (collision.CompareTag("Trap")) Die();
+        // --- EZT A RÉSZT TÖRÖLD KI VAGY KOMMENTELD KI: ---
+        // if (collision.CompareTag("Goal")) FindAnyObjectByType<GameManager>().LevelComplete();
+        // -------------------------------------------------
+
+        // Csak a csapdát figyeljük itt, a célt a Goal.cs intézi!
+        if (collision.CompareTag("Trap"))
+        {
+            Die();
+        }
     }
 
-    void Die()
+    public void Die()
     {
         // Ha már halottak vagyunk, ne fusson le újra (hogy ne legyen dupla hang/effekt)
         if (isDead) return;

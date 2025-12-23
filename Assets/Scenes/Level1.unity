@@ -15444,8 +15444,8 @@ MonoBehaviour:
   keySpawnHeight: 8
   safeZoneRadius: 1
   safeGoalRadius: 1
-  minCeilingHeight: 1
-  edgeCheckDistance: 1
+  minCeilingHeight: 0
+  edgeCheckDistance: 0.5
   minTrapDistance: 1.5
   trapOffsetY: 0.1
   historySampleRate: 0.01

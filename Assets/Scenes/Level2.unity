@@ -14779,8 +14779,8 @@ MonoBehaviour:
   levelMinX: -8
   levelMaxX: 8
   keySpawnHeight: 8
-  safeZoneRadius: 2
-  safeGoalRadius: 3
+  safeZoneRadius: 1
+  safeGoalRadius: 1
   minCeilingHeight: 0
   edgeCheckDistance: 0.5
   minTrapDistance: 1.5

@@ -55,6 +55,7 @@ public class Goal : MonoBehaviour
             }
             else
             {
+                // Ide tehetünk egy kis visszajelzést (opcionális)
                 Debug.Log("Zárva! Keresd meg a kulcsot!");
             }
         }
