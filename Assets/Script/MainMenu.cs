@@ -55,35 +55,42 @@ public class MainMenu : MonoBehaviour
         }
     }
 
-    // Ezt hívják a Nehézség gombok (0=Normal, 1=Hard)
-    // Csak ÚJ játéknál fut le
+    // Ezt is módosítani kell: Új játéknál is a választóra vagy az 1. pályára vigyen?
+    // Általában új játéknál logikus az 1. pályára dobni egybõl.
+    // De ha azt akarod, hogy õk is lássák a választót (ahol csak az 1-es aktív), akkor írd át ezt is.
     public void OnDifficultySelected(int difficulty)
     {
-        // 1. Elmentjük az új játék adatait a slotba (Level 1, Round 1)
-        // Fontos: Itt inicializáljuk a mentést!
         SaveSystem.SaveGame(selectedSlot, 1, difficulty, 1);
 
-        // 2. Beállítjuk a PlayerPrefs-et a GameManagernek is (hogy tudja, mi van)
         PlayerPrefs.SetInt("CurrentSlot", selectedSlot);
         PlayerPrefs.SetInt("Difficulty", difficulty);
 
-        // 3. Indítás (Reseteljük a statikus változókat)
         GameManager.ResetStaticVariablesForNewGame();
-        SceneManager.LoadScene(1); // 1. pálya betöltése (ellenõrizd a Build Settings-ben!)
+
+        // DÖNTÉS:
+        // A) Kezdje el azonnal az 1. pályát (Klasszikus):
+        SceneManager.LoadScene(1);
+
+        // B) Vigye a Pályaválasztóra (ahol csak a Level 1 gomb aktív):
+        // SceneManager.LoadScene("LevelSelect");
     }
 
     // --- LOGIKA ---
+    // Ezt kell módosítani: Ne a mentett szintet töltse be, hanem a Pályaválasztót!
     private void LoadGameFromSlot(int slotIndex)
     {
-        int levelToLoad = SaveSystem.GetSavedLevel(slotIndex);
+        int savedLevel = SaveSystem.GetSavedLevel(slotIndex); // Csak hogy tudjuk, van mentés
         int difficulty = SaveSystem.GetSavedDifficulty(slotIndex);
 
-        // Beállítjuk az aktuális játékmenet adatait
         PlayerPrefs.SetInt("CurrentSlot", slotIndex);
         PlayerPrefs.SetInt("Difficulty", difficulty);
 
         GameManager.ResetStaticVariablesForNewGame();
-        SceneManager.LoadScene(levelToLoad);
+
+        // --- MÓDOSÍTÁS ITT: ---
+        // SceneManager.LoadScene(savedLevel); // HELYETT:
+        SceneManager.LoadScene("LevelSelect"); // Töltsük be a választót!
+        // (Vagy használd az indexét, ha tudod, pl. SceneManager.LoadScene(6);)
     }
 
     // Törlés gombhoz (ha akarsz ilyet a slot mellé)

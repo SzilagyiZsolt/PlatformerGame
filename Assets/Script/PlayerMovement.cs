@@ -15,7 +15,11 @@ public class PlayerMovement : MonoBehaviour
     [Header("Animáció & Effektek")]
     public Animator animator;
     public ParticleSystem dust;
-    public GameObject deathEffect; // <--- EZ AZ ÚJ VÁLTOZÓ (Prefab)
+    public GameObject deathEffect;
+
+    [Header("Külső Hatások")]
+    public float externalMomentum; // Ezt tölti fel a szalag
+    public float momentumDrag = 5f; // Milyen gyorsan fogyjon el a lendület
 
     private Rigidbody2D rb;
     public bool isGrounded;
@@ -43,6 +47,7 @@ public class PlayerMovement : MonoBehaviour
             return;
         }
 
+        // --- TALAJ ÉRZÉKELÉS ---
         bool wasGrounded = isGrounded;
         isGrounded = Physics2D.OverlapCircle(groundCheck.position, checkRadius, groundLayer);
 
@@ -56,18 +61,38 @@ public class PlayerMovement : MonoBehaviour
             jumpCounter = extraJumps;
         }
 
+        // --- MOZGÁS ÉS LENDÜLET LOGIKA (EZT JAVÍTOTTUK) ---
         float moveInput = Input.GetAxisRaw("Horizontal");
-        rb.linearVelocity = new Vector2(moveInput * moveSpeed, rb.linearVelocity.y);
 
+        // 1. A lendület folyamatos csökkentése
+        externalMomentum = Mathf.Lerp(externalMomentum, 0, Time.deltaTime * momentumDrag);
+
+        // --- ÚJ RÉSZ: A "VÁGÁS" ---
+        // Ha már nagyon kicsi a szám (pl. kisebb mint 0.1), akkor legyen simán 0.
+        // Ezzel megáll a "számolás".
+        if (Mathf.Abs(externalMomentum) < 0.1f)
+        {
+            externalMomentum = 0f;
+        }
+        // --------------------------
+
+        // 2. A sebesség kiszámítása: (Gombnyomás * Sebesség) + (Szalag lendület)
+        rb.linearVelocity = new Vector2((moveInput * moveSpeed) + externalMomentum, rb.linearVelocity.y);
+
+        // ----------------------------------------------------
+
+        // Forgatás
         if (moveInput > 0) transform.localScale = new Vector3(1, 1, 1);
         else if (moveInput < 0) transform.localScale = new Vector3(-1, 1, 1);
 
+        // Animáció
         if (animator != null)
         {
             animator.SetFloat("Speed", Mathf.Abs(moveInput));
             animator.SetBool("IsJumping", !isGrounded);
         }
 
+        // Ugrás
         if (Input.GetButtonDown("Jump"))
         {
             if (isGrounded)
@@ -81,6 +106,7 @@ public class PlayerMovement : MonoBehaviour
             }
         }
 
+        // Ugrás levágása (ha elengedi a gombot)
         if (Input.GetButtonUp("Jump") && rb.linearVelocity.y > 0)
         {
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y * jumpCutMultiplier);
@@ -91,6 +117,7 @@ public class PlayerMovement : MonoBehaviour
 
     void Jump()
     {
+        // Ugrás előtt nullázzuk az Y sebességet a konzisztens ugrásmagasságért
         rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0);
         rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
         CreateDust();
@@ -104,10 +131,6 @@ public class PlayerMovement : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        // --- EZT A RÉSZT TÖRÖLD KI VAGY KOMMENTELD KI: ---
-        // if (collision.CompareTag("Goal")) FindAnyObjectByType<GameManager>().LevelComplete();
-        // -------------------------------------------------
-
         // Csak a csapdát figyeljük itt, a célt a Goal.cs intézi!
         if (collision.CompareTag("Trap"))
         {
@@ -117,20 +140,15 @@ public class PlayerMovement : MonoBehaviour
 
     public void Die()
     {
-        // Ha már halottak vagyunk, ne fusson le újra (hogy ne legyen dupla hang/effekt)
         if (isDead) return;
 
         isDead = true;
 
-        // --- HALÁL EFFEKT LÉTREHOZÁSA ---
         if (deathEffect != null)
         {
             Instantiate(deathEffect, transform.position, Quaternion.identity);
         }
 
-        // Eltüntetjük a karaktert (hogy csak az effekt maradjon)
-        // Nem Destroy-oljuk azonnal, mert akkor a script is leállna!
-        // Csak a kinézetét kapcsoljuk le:
         GetComponent<SpriteRenderer>().enabled = false;
         GetComponent<Collider2D>().enabled = false;
 

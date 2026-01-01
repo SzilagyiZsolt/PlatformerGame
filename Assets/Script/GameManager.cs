@@ -131,8 +131,18 @@ public class GameManager : MonoBehaviour
     {
         Vector2 origin = new Vector2(searchPos.x, searchPos.y + 0.5f);
         RaycastHit2D hit = Physics2D.Raycast(origin, Vector2.down, 10f, playerScript.groundLayer);
+
         if (hit.collider == null) return null;
+
+        // --- TILTOTT OBJEKTUMOK ---
         if (hit.collider.GetComponent<MovingPlatform>() != null) return null;
+        if (hit.collider.GetComponent<FallingPlatform>() != null) return null;
+        if (hit.collider.GetComponent<JumpPad>() != null) return null;
+
+        // ÚJ: Ha futószalag van ott, ne tegyél rá csapdát!
+        if (hit.collider.GetComponent<ConveyorBelt>() != null) return null;
+        // --------------------------
+
         if (IsPositionSafe(hit.point)) return hit.point;
         return null;
     }
@@ -186,9 +196,66 @@ public class GameManager : MonoBehaviour
 
         if (validPositionsHistory.Count > 0)
         {
-            int randomIndex = Random.Range(0, validPositionsHistory.Count);
-            trapPositions.Add(validPositionsHistory[randomIndex]);
+            // --- BOMBABIZTOS HELYKERESÉS ---
+            Vector3 chosenPosition = Vector3.zero;
+            bool foundValidSpot = false;
+            int attempts = 0;
+            int maxAttempts = 20; // Kicsit növeltem a próbálkozást
+
+            while (!foundValidSpot && attempts < maxAttempts)
+            {
+                // 1. Véletlen pont kiválasztása
+                int randomIndex = Random.Range(0, validPositionsHistory.Count);
+                Vector3 candidatePos = validPositionsHistory[randomIndex];
+
+                // 2. ELLENÕRZÉS: Van-e bármi a közelben?
+                // Megnöveltem a sugarat 0.8f-re, hogy biztosan tartson távolságot
+                Collider2D[] hitColliders = Physics2D.OverlapCircleAll(candidatePos, 0.8f);
+
+                bool occupied = false;
+                foreach (var col in hitColliders)
+                {
+                    // Itt a lényeg: Ha "Trap", "Goal" VAGY "Obstacle" van ott -> FOGLALT!
+                    if (col.CompareTag("Trap") || col.CompareTag("Goal") || col.CompareTag("Obstacle"))
+                    {
+                        occupied = true;
+                        break;
+                    }
+
+                    // Extra védelem: Ha mozgó dolgok scriptje van rajta
+                    if (col.GetComponent<MovingPlatform>() != null ||
+                        col.GetComponent<FallingPlatform>() != null ||
+                        col.GetComponent<ConveyorBelt>() != null ||
+                        col.GetComponent<JumpPad>() != null)
+                    {
+                        occupied = true;
+                        break;
+                    }
+                }
+
+                if (!occupied)
+                {
+                    chosenPosition = candidatePos;
+                    foundValidSpot = true;
+                }
+
+                attempts++;
+            }
+
+            // Ha találtunk jó helyet, elmentjük
+            if (foundValidSpot)
+            {
+                trapPositions.Add(chosenPosition);
+            }
+            else
+            {
+                // Ha 20-szorra sem találtunk (nagyon ritka), akkor inkább nem rakunk le semmit ebben a körben,
+                // hogy ne rontsuk el a pályát. (Vagy rakhatod a validPositionsHistory[0]-ra kockázatként).
+                Debug.LogWarning("Nem találtam üres helyet a csapdának, ebben a körben nem született új csapda.");
+            }
+            // ----------------------------------------
         }
+
         currentRound++;
 
         if (currentRound > maxRounds) StartCoroutine(WinSequence());
