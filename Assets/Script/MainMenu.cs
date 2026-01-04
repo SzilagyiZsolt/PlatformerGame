@@ -1,15 +1,26 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using TMPro; // Szükség lesz rá a gombok feliratához
+using UnityEngine.EventSystems; // --- EZT ADD HOZZÁ FENTRE! ---
 
 public class MainMenu : MonoBehaviour
 {
     [Header("Panelek")]
     public GameObject saveSlotsPanel;
     public GameObject difficultyPanel;
+    public GameObject mainMenuPanel; // Ha van külön panel a fõmenü gomboknak
+    public GameObject settingsPanel; // Húzd be a Beállítások ablakot
+
+    [Header("Kontroller Navigáció")]
+    // Ide húzd be azokat a gombokat, amiknek ELSÕKÉNT kell aktívnak lenniük
+    public GameObject playButtonObj;      // A Fõmenü "Play" gombja
+    public GameObject slot1ButtonObj;     // A Slot választó "Slot 1" gombja
+    public GameObject normalDiffButtonObj;// A Nehézség "Normal" gombja
 
     [Header("Slot Gombok Szövegei")]
     public TextMeshProUGUI[] slotTexts; // Húzd be ide a 3 gomb szövegét!
+
+    
 
     private int selectedSlot = 1; // Melyik slotot nyomtuk meg épp
 
@@ -23,18 +34,21 @@ public class MainMenu : MonoBehaviour
     {
         saveSlotsPanel.SetActive(false);
         difficultyPanel.SetActive(false);
+        if (mainMenuPanel != null) mainMenuPanel.SetActive(true);
+
+        // KONTROLLER: Beállítjuk az elsõ gombot aktívnak
+        SetFirstSelected(playButtonObj);
     }
 
     public void OnPlayButtonClicked()
     {
-        // --- EZT A SORT TÖRÖLD KI VAGY KOMMENTELD KI: ---
-        // mainMenuPanel.SetActive(false); 
-        // ------------------------------------------------
-
-        // Csak a Save Panel jelenjen meg (a Main Menu felett)
+        if (mainMenuPanel != null) mainMenuPanel.SetActive(false);
         saveSlotsPanel.SetActive(true);
 
         UpdateSlotUI();
+
+        // KONTROLLER: Amikor átlépünk a Slot választóba, jelöljük ki az 1-est
+        SetFirstSelected(slot1ButtonObj);
     }
 
     // Ezt hívják a Slot gombok (1, 2, 3)
@@ -52,7 +66,19 @@ public class MainMenu : MonoBehaviour
             // Ha üres, jöhet a nehézség választás
             saveSlotsPanel.SetActive(false);
             difficultyPanel.SetActive(true);
+
+            // KONTROLLER: Amikor átlépünk a nehézségre, jelöljük ki a Normalt
+            SetFirstSelected(normalDiffButtonObj);
         }
+    }
+
+    // --- SEGÉDFÜGGVÉNY A KIVÁLASZTÁSHOZ ---
+    void SetFirstSelected(GameObject buttonToSelect)
+    {
+        // Töröljük az elõzõ kiválasztást
+        EventSystem.current.SetSelectedGameObject(null);
+        // Beállítjuk az újat
+        EventSystem.current.SetSelectedGameObject(buttonToSelect);
     }
 
     // Ezt is módosítani kell: Új játéknál is a választóra vagy az 1. pályára vigyen?
@@ -117,6 +143,31 @@ public class MainMenu : MonoBehaviour
                 slotTexts[i].text = $"Empty";
             }
         }
+    }
+
+    // Ezt húzd a Slot Panel "Back" gombjára!
+    public void BackToMainMenu()
+    {
+        saveSlotsPanel.SetActive(false);
+        // Ha van más panel is nyitva, azt is zárd be itt
+        ShowMainMenu(); // Ez a függvényed (amit korábban írtunk) már beállítja a fókuszt a Play gombra!
+    }
+
+    // Ezt húzd a Difficulty Panel "Back" gombjára!
+    public void BackToSlots()
+    {
+        difficultyPanel.SetActive(false);
+        saveSlotsPanel.SetActive(true);
+
+        // VISSZAADJUK A FÓKUSZT A SLOT 1-RE
+        SetFirstSelected(slot1ButtonObj);
+    }
+
+    // Ezt húzd a Settings Panel "Back" gombjára a Fõmenüben!
+    public void CloseSettings()
+    {
+        if (settingsPanel != null) settingsPanel.SetActive(false);
+        ShowMainMenu(); // Visszadob a fõmenübe és fókuszál
     }
 
     public void QuitGame()

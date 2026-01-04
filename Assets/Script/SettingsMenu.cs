@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro; // Kell a TextMeshPro miatt!
 using System.Collections.Generic;
+using UnityEngine.EventSystems; // --- EZT ADD HOZZÁ! ---
 
 public class SettingsMenu : MonoBehaviour
 {
@@ -13,6 +14,10 @@ public class SettingsMenu : MonoBehaviour
     [Header("Százalék Kijelzõk (ÚJ)")]
     public TextMeshProUGUI musicPercentText; // Zene %
     public TextMeshProUGUI sfxPercentText;   // SFX %
+
+    [Header("Kontroller Navigáció")]
+    // Húzd be ide a Zene Csúszkát (Music Slider) az Inspectorban!
+    public GameObject firstSelectedObject;
 
     private List<Resolution> filteredResolutions;
 
@@ -69,6 +74,17 @@ public class SettingsMenu : MonoBehaviour
             resolutionDropdown.AddOptions(options);
             resolutionDropdown.value = currentResolutionIndex;
             resolutionDropdown.RefreshShownValue();
+        }
+    }
+
+    private void OnEnable()
+    {
+        // Amikor a Beállítások ablak megjelenik (akár Fõmenüben, akár Pause-ban)
+        // Azonnal rátesszük a fókuszt az elsõ elemre.
+        if (EventSystem.current != null && firstSelectedObject != null)
+        {
+            EventSystem.current.SetSelectedGameObject(null); // Elõzõ törlése
+            EventSystem.current.SetSelectedGameObject(firstSelectedObject); // Új beállítása
         }
     }
 

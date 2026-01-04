@@ -3,10 +3,23 @@ using UnityEngine.SceneManagement;
 using System.Collections.Generic;
 using TMPro;
 using System.Collections;
+using UnityEngine.EventSystems; // <--- FONTOS!
 
 public class GameManager : MonoBehaviour
 {
-    // ... (A változók és a Start/Update változatlanok maradnak) ...
+    public static GameManager instance;
+
+    [Header("Jubileumi (10-es) Pálya Beállítások")]
+    public static bool isJubileeMode = false;   // Ez jelzi, hogy a 10. pályán vagyunk-e
+    public static int jubileeCurrentLevel = 1;  // Melyik pályánál tartunk épp a maratonban (1-9)
+
+    [Header("Kontroller Navigáció")]
+    public GameObject pauseFirstButton; // Húzd be ide a "Resume" gombot!
+    public GameObject winFirstButton;   // Húzd be ide a "Next Level" vagy "Menu" gombot!
+
+    [Header("Menü Panelek")]
+    public GameObject settingsPanel; // Húzd be a Beállítások ablakot
+
     [Header("UI Menük")]
     public GameObject pauseMenuUI;
     public GameObject gameUI;
@@ -42,6 +55,11 @@ public class GameManager : MonoBehaviour
     private List<Vector3> validPositionsHistory = new List<Vector3>();
     private float nextSampleTime = 0f;
 
+    void Awake()
+    {
+        instance = this;
+    }
+
     void Start()
     {
         isLevelFinished = false;
@@ -54,11 +72,26 @@ public class GameManager : MonoBehaviour
         GameObject goalObj = GameObject.FindGameObjectWithTag("Goal");
         if (goalObj != null) goalPosition = goalObj.transform.position;
 
+        // --- JUBILEUMI MÓD KEZELÉSE ---
+        if (isJubileeMode)
+        {
+            HandleJubileeStart();
+        }
+        // ------------------------------
+
         if (roundText != null)
         {
-            int diff = PlayerPrefs.GetInt("Difficulty", 1);
-            string diffText = diff == 0 ? "(Normal)" : "(Hard)";
-            roundText.text = $"Round:{currentRound}/{maxRounds} {diffText}";
+            if (isJubileeMode)
+            {
+                // Maraton módban nem a köröket írjuk ki, hanem hogy melyik pályán vagy
+                roundText.text = $"GAUNTLET: Level {jubileeCurrentLevel}/9";
+            }
+            else
+            {
+                int diff = PlayerPrefs.GetInt("Difficulty", 1);
+                string diffText = diff == 0 ? "(Normal)" : "(Hard)";
+                roundText.text = $"Round:{currentRound}/{maxRounds} {diffText}";
+            }
         }
 
         if (winPanel != null) winPanel.SetActive(false);
@@ -66,6 +99,7 @@ public class GameManager : MonoBehaviour
         if (pauseMenuUI != null) pauseMenuUI.SetActive(false);
         if (gameUI != null) gameUI.SetActive(true);
 
+        // Csapdák lerakása
         if (trapPrefab != null)
         {
             foreach (Vector3 pos in trapPositions)
@@ -77,9 +111,23 @@ public class GameManager : MonoBehaviour
         if (levelRequiresKey) SpawnKey();
     }
 
+    // Külön függvény a Jubileumi start logikának a tisztaság kedvéért
+    void HandleJubileeStart()
+    {
+        // 1. Csak 1 kört kell menni
+        maxRounds = 1;
+        currentRound = 1;
+
+        // 2. Betöltjük a mentett tüskéket az adott pályához (pl. Level 1-hez)
+        // Megjegyzés: A scene nevének végén lévõ számot feltételezzük, vagy a jubileeCurrentLevel változót használjuk
+        trapPositions = SaveSystem.LoadTrapsForLevel(jubileeCurrentLevel);
+
+        Debug.Log($"Jubilee Mode: Loaded {trapPositions.Count} traps for Level {jubileeCurrentLevel}");
+    }
+
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Escape))
+        if (Input.GetKeyDown(KeyCode.Escape) || Input.GetButtonDown("Submit"))
         {
             if (isPaused) ResumeGame(); else PauseGame();
         }
@@ -102,17 +150,33 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // ... (Helper functions: ResumeGame, PauseGame, LoadMainMenu, stb. változatlanok) ...
     public void ResumeGame() { if (pauseMenuUI != null) pauseMenuUI.SetActive(false); if (gameUI != null) gameUI.SetActive(true); Time.timeScale = 1f; isPaused = false; }
-    void PauseGame() { if (pauseMenuUI != null) pauseMenuUI.SetActive(true); if (gameUI != null) gameUI.SetActive(false); Time.timeScale = 0f; isPaused = true; }
+    void PauseGame()
+    {
+        if (pauseMenuUI != null) pauseMenuUI.SetActive(true);
+        if (gameUI != null) gameUI.SetActive(false);
+        Time.timeScale = 0f;
+        isPaused = true;
+
+        // --- KONTROLLER FÓKUSZ BEÁLLÍTÁSA ---
+        // Töröljük az elõzõt
+        EventSystem.current.SetSelectedGameObject(null);
+        // Beállítjuk az újat (pl. Resume gomb)
+        if (pauseFirstButton != null)
+        {
+            EventSystem.current.SetSelectedGameObject(pauseFirstButton);
+        }
+    }
 
     public void LoadMainMenu()
     {
         Time.timeScale = 1f;
         ResetStaticVariables();
+        isJubileeMode = false; // Kilépéskor reseteljük a módot
         MovingPlatform.ResetAllPlatforms();
         SceneManager.LoadScene(0);
     }
+
     public void CollectKey() { hasKey = true; }
     public bool IsKeyCollected() { return !levelRequiresKey || hasKey; }
 
@@ -127,6 +191,7 @@ public class GameManager : MonoBehaviour
             if (validPos.HasValue) { Instantiate(keyPrefab, validPos.Value + Vector3.up * 0.5f, Quaternion.identity); return; }
         }
     }
+
     Vector3? GetValidGroundPos(Vector3 searchPos)
     {
         Vector2 origin = new Vector2(searchPos.x, searchPos.y + 0.5f);
@@ -134,18 +199,15 @@ public class GameManager : MonoBehaviour
 
         if (hit.collider == null) return null;
 
-        // --- TILTOTT OBJEKTUMOK ---
         if (hit.collider.GetComponent<MovingPlatform>() != null) return null;
         if (hit.collider.GetComponent<FallingPlatform>() != null) return null;
         if (hit.collider.GetComponent<JumpPad>() != null) return null;
-
-        // ÚJ: Ha futószalag van ott, ne tegyél rá csapdát!
         if (hit.collider.GetComponent<ConveyorBelt>() != null) return null;
-        // --------------------------
 
         if (IsPositionSafe(hit.point)) return hit.point;
         return null;
     }
+
     bool IsPositionSafe(Vector3 pos)
     {
         if (Vector3.Distance(pos, startPosition) < safeZoneRadius) return false;
@@ -159,107 +221,114 @@ public class GameManager : MonoBehaviour
     }
 
     public void GameOver() { if (isLevelFinished) return; StartCoroutine(AutoRestartSequence()); }
+
     IEnumerator AutoRestartSequence() { yield return new WaitForSeconds(2f); RestartGame(); }
 
-    // --- ITT TÖRTÉNT A MÓDOSÍTÁS ---
     public void RestartGame()
     {
-        int difficulty = PlayerPrefs.GetInt("Difficulty", 1);
-
-        if (difficulty == 1)
+        if (isJubileeMode)
         {
-            // HARD MODE:
-            // 1. NEM töröljük a mentést (SaveSystem.DeleteSave kivéve!)
-
-            // 2. Teljesen reseteljük a pályát (mintha most léptünk volna be elõször)
-            // Ez törli a csapdákat (trapPositions) és a körszámlálót (currentRound = 1)
-            // És a liftek memóriáját is törli.
+            // --- JUBILEUMI HALÁL ---
+            // Ha meghalsz a maratonban, visszadob a LEGELEJÉRE (Level 1)
+            Debug.Log("Jubilee Mode Failed! Restarting form Level 1.");
+            jubileeCurrentLevel = 1;
             ResetStaticVariablesForNewGame();
 
-            // 3. Az AKTUÁLIS pályát töltjük újra (nem a Level 1-et)
-            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            // Betöltjük az 1. pályát (amelynek a build indexe feltételezhetõen 1, vagy a neve "Level1")
+            SceneManager.LoadScene("Level1");
         }
         else
         {
-            // NORMAL MODE: 
-            // Csak a kör indul újra, a csapdák és a körszám megmaradnak.
-            Time.timeScale = 1;
-            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            // --- NORMÁL MÓD HALÁL ---
+            int difficulty = PlayerPrefs.GetInt("Difficulty", 1);
+            if (difficulty == 1) // Hard
+            {
+                ResetStaticVariablesForNewGame();
+                SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            }
+            else // Normal
+            {
+                Time.timeScale = 1;
+                SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            }
         }
     }
-    // --------------------------------
 
     public void LevelComplete()
     {
         if (isLevelFinished) return;
         isLevelFinished = true;
 
-        if (validPositionsHistory.Count > 0)
+        if (isJubileeMode)
         {
-            // --- BOMBABIZTOS HELYKERESÉS ---
-            Vector3 chosenPosition = Vector3.zero;
-            bool foundValidSpot = false;
-            int attempts = 0;
-            int maxAttempts = 20; // Kicsit növeltem a próbálkozást
-
-            while (!foundValidSpot && attempts < maxAttempts)
+            // --- JUBILEUMI PÁLYA TELJESÍTVE ---
+            // Nem rakunk le új csapdát, hanem lépünk a következõ pályára
+            if (jubileeCurrentLevel < 9) // Ha még nem a 9. volt az utolsó
             {
-                // 1. Véletlen pont kiválasztása
-                int randomIndex = Random.Range(0, validPositionsHistory.Count);
-                Vector3 candidatePos = validPositionsHistory[randomIndex];
-
-                // 2. ELLENÕRZÉS: Van-e bármi a közelben?
-                // Megnöveltem a sugarat 0.8f-re, hogy biztosan tartson távolságot
-                Collider2D[] hitColliders = Physics2D.OverlapCircleAll(candidatePos, 0.8f);
-
-                bool occupied = false;
-                foreach (var col in hitColliders)
-                {
-                    // Itt a lényeg: Ha "Trap", "Goal" VAGY "Obstacle" van ott -> FOGLALT!
-                    if (col.CompareTag("Trap") || col.CompareTag("Goal") || col.CompareTag("Obstacle"))
-                    {
-                        occupied = true;
-                        break;
-                    }
-
-                    // Extra védelem: Ha mozgó dolgok scriptje van rajta
-                    if (col.GetComponent<MovingPlatform>() != null ||
-                        col.GetComponent<FallingPlatform>() != null ||
-                        col.GetComponent<ConveyorBelt>() != null ||
-                        col.GetComponent<JumpPad>() != null)
-                    {
-                        occupied = true;
-                        break;
-                    }
-                }
-
-                if (!occupied)
-                {
-                    chosenPosition = candidatePos;
-                    foundValidSpot = true;
-                }
-
-                attempts++;
-            }
-
-            // Ha találtunk jó helyet, elmentjük
-            if (foundValidSpot)
-            {
-                trapPositions.Add(chosenPosition);
+                StartCoroutine(JubileeNextLevelSequence());
             }
             else
             {
-                // Ha 20-szorra sem találtunk (nagyon ritka), akkor inkább nem rakunk le semmit ebben a körben,
-                // hogy ne rontsuk el a pályát. (Vagy rakhatod a validPositionsHistory[0]-ra kockázatként).
-                Debug.LogWarning("Nem találtam üres helyet a csapdának, ebben a körben nem született új csapda.");
+                // Ha megcsináltuk a 9.-et is a maratonban -> GYÕZELEM!
+                StartCoroutine(WinSequence());
             }
-            // ----------------------------------------
         }
+        else
+        {
+            // --- NORMÁL MÓD ---
+            // Tüske lerakása logika...
+            if (validPositionsHistory.Count > 0)
+            {
+                Vector3 chosenPosition = Vector3.zero;
+                bool foundValidSpot = false;
+                int attempts = 0;
+                int maxAttempts = 20;
 
-        currentRound++;
+                while (!foundValidSpot && attempts < maxAttempts)
+                {
+                    int randomIndex = Random.Range(0, validPositionsHistory.Count);
+                    Vector3 candidatePos = validPositionsHistory[randomIndex];
+                    Collider2D[] hitColliders = Physics2D.OverlapCircleAll(candidatePos, 0.8f);
 
-        if (currentRound > maxRounds) StartCoroutine(WinSequence());
-        else { Time.timeScale = 1; SceneManager.LoadScene(SceneManager.GetActiveScene().name); }
+                    bool occupied = false;
+                    foreach (var col in hitColliders)
+                    {
+                        if (col.CompareTag("Trap") || col.CompareTag("Goal") || col.CompareTag("Obstacle")) { occupied = true; break; }
+                        if (col.GetComponent<MovingPlatform>() != null || col.GetComponent<FallingPlatform>() != null || col.GetComponent<ConveyorBelt>() != null || col.GetComponent<JumpPad>() != null) { occupied = true; break; }
+                    }
+
+                    if (!occupied) { chosenPosition = candidatePos; foundValidSpot = true; }
+                    attempts++;
+                }
+
+                if (foundValidSpot) trapPositions.Add(chosenPosition);
+            }
+
+            currentRound++;
+            if (currentRound > maxRounds) StartCoroutine(WinSequence());
+            else { Time.timeScale = 1; SceneManager.LoadScene(SceneManager.GetActiveScene().name); }
+        }
+    }
+
+    IEnumerator JubileeNextLevelSequence()
+    {
+        if (winText != null)
+        {
+            winPanel.SetActive(true);
+            winText.text = "NEXT LEVEL!";
+        }
+        if (playerScript != null) playerScript.gameObject.SetActive(false);
+
+        yield return new WaitForSeconds(2); // Rövid szünet
+
+        jubileeCurrentLevel++; // Lépünk a kövi pályára
+
+        // Resetelünk, de a jubilee változókat NEM!
+        ResetStaticVariables();
+        MovingPlatform.ResetAllPlatforms();
+
+        // Betöltjük a következõ pályát (pl. "Level2")
+        SceneManager.LoadScene("Level" + jubileeCurrentLevel);
     }
 
     IEnumerator WinSequence()
@@ -268,25 +337,49 @@ public class GameManager : MonoBehaviour
         if (gameUI != null) gameUI.SetActive(false);
         if (playerScript != null) playerScript.gameObject.SetActive(false);
 
-        // --- MENTÉS ---
+        // --- CSAPDÁK MENTÉSE (Marad a régi) ---
+        if (!isJubileeMode)
+        {
+            int currentLevelIndex = SceneManager.GetActiveScene().buildIndex;
+            SaveSystem.SaveTrapsForLevel(currentLevelIndex, trapPositions);
+        }
+
+        // --- PROGRESSZIÓ MENTÉSE (ITT A JAVÍTÁS!) ---
         int nextSceneIndex = SceneManager.GetActiveScene().buildIndex + 1;
         bool hasNextLevel = nextSceneIndex < SceneManager.sceneCountInBuildSettings;
         int currentSlot = PlayerPrefs.GetInt("CurrentSlot", 1);
         int difficulty = PlayerPrefs.GetInt("Difficulty", 1);
 
-        if (hasNextLevel)
+        if (hasNextLevel && !isJubileeMode)
         {
-            SaveSystem.SaveGame(currentSlot, nextSceneIndex, difficulty, 1);
-        }
+            // 1. Lekérjük, hol tartottunk eddig (pl. Level 5)
+            int currentlySavedLevel = SaveSystem.GetSavedLevel(currentSlot);
 
-        if (winText != null) winText.text = hasNextLevel ? "LEVEL COMPLETE!" : "YOU WON THE GAME!";
+            // 2. Azt mentjük el, amelyik a NAGYOBB. 
+            // Ha Level 1-et csináltad meg (next=2), de már 5-nél tartasz: Max(2, 5) = 5. (Marad az 5)
+            // Ha Level 5-öt csináltad meg (next=6), és 5-nél tartasz: Max(6, 5) = 6. (Fejlõdsz)
+            int levelToSave = Mathf.Max(nextSceneIndex, currentlySavedLevel);
+
+            SaveSystem.SaveGame(currentSlot, levelToSave, difficulty, 1);
+        }
+        // ---------------------------------------------
+
+        if (isJubileeMode)
+        {
+            if (winText != null) winText.text = "10TH ANNIVERSARY COMPLETE!";
+        }
+        else
+        {
+            if (winText != null) winText.text = hasNextLevel ? "LEVEL COMPLETE!" : "YOU WON THE GAME!";
+        }
 
         yield return new WaitForSeconds(4);
 
         ResetStaticVariables();
+        isJubileeMode = false;
         MovingPlatform.ResetAllPlatforms();
 
-        if (hasNextLevel) SceneManager.LoadScene(nextSceneIndex);
+        if (hasNextLevel && !isJubileeMode) SceneManager.LoadScene(nextSceneIndex);
         else SceneManager.LoadScene(0);
     }
 
@@ -307,5 +400,39 @@ public class GameManager : MonoBehaviour
         MovingPlatform.ResetAllPlatforms();
         currentRound = 1;
         Time.timeScale = 1;
+    }
+
+    // Ezt hívd meg a 10. pálya gombjával (pl. LevelSelect menübõl)
+    public static void StartJubileeMode()
+    {
+        isJubileeMode = true;
+        jubileeCurrentLevel = 1;
+        ResetStaticVariablesForNewGame();
+        SceneManager.LoadScene("Level1");
+    }
+
+    // Ezt hívd meg a Pause menü "Settings" gombjával
+    public void OpenSettings()
+    {
+        pauseMenuUI.SetActive(false);
+        settingsPanel.SetActive(true);
+
+        // Fókusz a Settings elsõ elemére (a SettingsMenu.cs OnEnable intézi, de biztosra megyünk)
+        // (Nem kötelezõ ide, ha a SettingsMenu.cs-ben megvan az OnEnable)
+    }
+
+    // --- EZ A HIÁNYZÓ LÁNCSZEM ---
+    // Ezt húzd rá a Beállítások panel "Vissza" (Back) gombjára a Pause menüben!
+    public void CloseSettings()
+    {
+        settingsPanel.SetActive(false);
+        pauseMenuUI.SetActive(true);
+
+        // VISSZAADJUK A FÓKUSZT A RESUME GOMBRA
+        EventSystem.current.SetSelectedGameObject(null);
+        if (pauseFirstButton != null)
+        {
+            EventSystem.current.SetSelectedGameObject(pauseFirstButton);
+        }
     }
 }

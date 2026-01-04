@@ -10572,22 +10572,10 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1562936044}
-        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
-        m_MethodName: SetActive
-        m_Mode: 6
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 1
-        m_CallState: 2
-      - m_Target: {fileID: 1355896145}
-        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
-        m_MethodName: SetActive
-        m_Mode: 6
+      - m_Target: {fileID: 1926428895}
+        m_TargetAssemblyTypeName: GameManager, Assembly-CSharp
+        m_MethodName: OpenSettings
+        m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
@@ -11250,6 +11238,7 @@ MonoBehaviour:
   resolutionDropdown: {fileID: 997040780}
   musicPercentText: {fileID: 577023588}
   sfxPercentText: {fileID: 298135088}
+  firstSelectedObject: {fileID: 1119989022}
 --- !u!114 &1562936047
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -11613,10 +11602,10 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1562936044}
-        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
-        m_MethodName: SetActive
-        m_Mode: 6
+      - m_Target: {fileID: 1926428895}
+        m_TargetAssemblyTypeName: GameManager, Assembly-CSharp
+        m_MethodName: CloseSettings
+        m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
@@ -11624,18 +11613,6 @@ MonoBehaviour:
           m_FloatArgument: 0
           m_StringArgument: 
           m_BoolArgument: 0
-        m_CallState: 2
-      - m_Target: {fileID: 1355896145}
-        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
-        m_MethodName: SetActive
-        m_Mode: 6
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 1
         m_CallState: 2
       - m_Target: {fileID: 1887012692}
         m_TargetAssemblyTypeName: ButtonSound, Assembly-CSharp
@@ -15430,6 +15407,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b13e080a99fd28948981cd47388ab50d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  pauseFirstButton: {fileID: 949002042}
+  winFirstButton: {fileID: 0}
+  settingsPanel: {fileID: 1562936044}
   pauseMenuUI: {fileID: 1355896145}
   gameUI: {fileID: 142888882}
   restartButton: {fileID: 1811523381}
@@ -16115,6 +16095,8 @@ MonoBehaviour:
   animator: {fileID: 2123401597}
   dust: {fileID: 1183511057}
   deathEffect: {fileID: 4078905896731616597, guid: 4ed4145c8ff682a448ee20ac6e9f0c43, type: 3}
+  externalMomentum: 0
+  momentumDrag: 5
   isGrounded: 0
   groundCheck: {fileID: 1668312347}
   groundLayer:

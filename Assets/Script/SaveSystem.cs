@@ -1,11 +1,13 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public static class SaveSystem
 {
-    // Elmenti az adott slot adatait
+    // --- MÁR MEGLÉVÕ MENTÉSI LOGIKA ---
+
     public static void SaveGame(int slotIndex, int levelIndex, int difficulty, int round)
     {
-        PlayerPrefs.SetInt($"Slot_{slotIndex}_Exists", 1); // Jelzi, hogy ez a slot foglalt
+        PlayerPrefs.SetInt($"Slot_{slotIndex}_Exists", 1);
         PlayerPrefs.SetInt($"Slot_{slotIndex}_Level", levelIndex);
         PlayerPrefs.SetInt($"Slot_{slotIndex}_Difficulty", difficulty);
         PlayerPrefs.SetInt($"Slot_{slotIndex}_Round", round);
@@ -13,7 +15,6 @@ public static class SaveSystem
         Debug.Log($"Game Saved to Slot {slotIndex}: Level {levelIndex}, Diff {difficulty}");
     }
 
-    // Törli a mentést (pl. Hard módban halálkor, vagy menübõl)
     public static void DeleteSave(int slotIndex)
     {
         PlayerPrefs.DeleteKey($"Slot_{slotIndex}_Exists");
@@ -24,14 +25,44 @@ public static class SaveSystem
         Debug.Log($"Save Slot {slotIndex} deleted.");
     }
 
-    // Megnézi, van-e mentés az adott sloton
     public static bool HasSave(int slotIndex)
     {
         return PlayerPrefs.HasKey($"Slot_{slotIndex}_Exists");
     }
 
-    // Segédfüggvények az adatok lekéréséhez
-    public static int GetSavedLevel(int slotIndex) => PlayerPrefs.GetInt($"Slot_{slotIndex}_Level", 1); // Default Level 1
+    public static int GetSavedLevel(int slotIndex) => PlayerPrefs.GetInt($"Slot_{slotIndex}_Level", 1);
     public static int GetSavedDifficulty(int slotIndex) => PlayerPrefs.GetInt($"Slot_{slotIndex}_Difficulty", 1);
     public static int GetSavedRound(int slotIndex) => PlayerPrefs.GetInt($"Slot_{slotIndex}_Round", 1);
+
+
+    // --- ÚJ RÉSZ: CSAPDÁK MENTÉSE A 10. PÁLYÁHOZ ---
+
+    // Egy segédosztály, mert a JsonUtility nem tud közvetlenül List<Vector3>-at menteni
+    [System.Serializable]
+    public class TrapListWrapper
+    {
+        public List<Vector3> positions;
+    }
+
+    // Elmenti az adott pályához tartozó összes tüskét
+    public static void SaveTrapsForLevel(int levelIndex, List<Vector3> traps)
+    {
+        TrapListWrapper wrapper = new TrapListWrapper { positions = traps };
+        string json = JsonUtility.ToJson(wrapper);
+        PlayerPrefs.SetString($"Level_{levelIndex}_Traps", json);
+        PlayerPrefs.Save();
+    }
+
+    // Betölti az adott pályához tartozó tüskéket (a 10. pályán használjuk)
+    public static List<Vector3> LoadTrapsForLevel(int levelIndex)
+    {
+        string key = $"Level_{levelIndex}_Traps";
+        if (PlayerPrefs.HasKey(key))
+        {
+            string json = PlayerPrefs.GetString(key);
+            TrapListWrapper wrapper = JsonUtility.FromJson<TrapListWrapper>(json);
+            return wrapper.positions;
+        }
+        return new List<Vector3>(); // Ha nincs mentés, üres listát adunk vissza
+    }
 }

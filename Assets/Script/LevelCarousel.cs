@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 using UnityEngine.SceneManagement;
 using System.Collections;
+using UnityEngine.EventSystems; // <-- EZ KELL A KONTROLLERHEZ!
 
 public class LevelCarousel : MonoBehaviour
 {
@@ -18,63 +19,108 @@ public class LevelCarousel : MonoBehaviour
     public float transitionSpeed = 0.2f;
 
     [Header("Pálya Adatok")]
-    public LevelData[] levels;
+    public LevelData[] levels; // FONTOS: Itt majd legyen 10 elem a Unity-ben!
+
+    [Header("Kontroller Navigáció")]
+    // Ide húzd be a PLAY gombot az Inspectorban!
+    public GameObject firstSelectedObject;
 
     private int currentIndex = 0;
     private int unlockedLevelIndex;
 
-    // --- JAVÍTÁS ITT: Tároljuk a fix méretet és az állapotot ---
     private Vector3 defaultScale;
-    private bool isAnimating = false; // Spam védelem
+    private bool isAnimating = false;
+
+    // Változó a "spam" elkerülésére (hogy ne pörgessen túl gyorsan)
+    private float inputCooldown = 0f;
 
     void Start()
     {
-        // Elmentjük a kezdeti méretet
         if (levelImageDisplay != null)
         {
             defaultScale = levelImageDisplay.transform.localScale;
         }
 
-        // 1. Betöltjük a mentést
         int currentSlot = PlayerPrefs.GetInt("CurrentSlot", 1);
         unlockedLevelIndex = SaveSystem.GetSavedLevel(currentSlot);
 
-        // --- ITT A VÁLTOZÁS ---
-        // Ahelyett, hogy 0-ról indulnánk, beugrunk a legutolsó elért szintre.
-        // Kivonunk 1-et, mert a mentés 1-esrõl indul, a tömb pedig 0-ról.
-        // A Mathf.Clamp biztosítja, hogy ne próbáljunk olyan pályára ugrani, ami nincs a listában (pl. ha a játék végére értél).
+        // --- MÓDOSÍTÁS: Ha végigvitte a játékot (unlockedLevelIndex > levels.Length) ---
+        // Akkor is csak a lista végére ugorjon, ne crasheljen
         currentIndex = Mathf.Clamp(unlockedLevelIndex - 1, 0, levels.Length - 1);
-        // ----------------------
 
-        UpdateUI(false); // Frissítjük a képet (animáció nélkül)
+        UpdateUI(false);
+
+        // Amikor a Level Selector elindul, rátesszük a jelölést a Play gombra
+        if (EventSystem.current != null && firstSelectedObject != null)
+        {
+            EventSystem.current.SetSelectedGameObject(null);
+            EventSystem.current.SetSelectedGameObject(firstSelectedObject);
+        }
+    }
+
+    void Update()
+    {
+        if (inputCooldown > 0) inputCooldown -= Time.deltaTime;
+
+        // Joystick Input (Balra/Jobbra)
+        float horizontalInput = Input.GetAxisRaw("Horizontal");
+
+        if (horizontalInput > 0.5f && inputCooldown <= 0)
+        {
+            NextLevel();
+            inputCooldown = 0.4f; // Fél másodpercet várni kell a kövi lapozásig
+        }
+        else if (horizontalInput < -0.5f && inputCooldown <= 0)
+        {
+            PreviousLevel();
+            inputCooldown = 0.4f;
+        }
+
+        // A Kontroller 'A' vagy 'X' gombja elindítja a pályát (ha a Play gomb aktív)
+        if (Input.GetButtonDown("Jump") || Input.GetButtonDown("Submit"))
+        {
+            // Opcionális: Ha nem Button-ként használod a Play-t, itt meghívhatod direktben:
+            // LoadCurrentLevel(); 
+        }
     }
 
     public void NextLevel()
     {
-        // Ha épp animálunk, vagy nincs több pálya, nem csinálunk semmit
         if (isAnimating || currentIndex >= levels.Length - 1) return;
-
         currentIndex++;
         StartCoroutine(AnimateTransition());
     }
 
     public void PreviousLevel()
     {
-        // Ha épp animálunk, vagy az elején vagyunk, nem csinálunk semmit
         if (isAnimating || currentIndex <= 0) return;
-
         currentIndex--;
         StartCoroutine(AnimateTransition());
     }
 
+    // --- ITT A LÉNYEGES VÁLTOZÁS ---
     public void LoadCurrentLevel()
     {
+        // Csak akkor engedjük, ha fel van oldva
         if (unlockedLevelIndex >= currentIndex + 1)
         {
-            GameManager.ResetStaticVariablesForNewGame();
-            SceneManager.LoadScene(levels[currentIndex].sceneIndex);
+            // Ellenõrizzük, hogy a 10. pálya van-e kiválasztva
+            // (Mivel a lista 0-tól indul, a 9-es index a 10. pálya)
+            if (currentIndex == 9)
+            {
+                // Ez a 10. Jubileumi pálya -> Speciális indítás!
+                Debug.Log("Jubilee Mode Selected via Carousel");
+                GameManager.StartJubileeMode();
+            }
+            else
+            {
+                // Ez egy sima pálya (1-9) -> Normál indítás
+                GameManager.ResetStaticVariablesForNewGame();
+                SceneManager.LoadScene(levels[currentIndex].sceneIndex);
+            }
         }
     }
+    // -------------------------------
 
     public void BackToMenu()
     {
@@ -83,12 +129,14 @@ public class LevelCarousel : MonoBehaviour
 
     private void UpdateUI(bool animate)
     {
+        // Biztonsági ellenõrzés, ha véletlenül nincs beállítva elég LevelData
+        if (currentIndex >= levels.Length) return;
+
         LevelData data = levels[currentIndex];
 
         levelNameText.text = data.levelName;
         levelImageDisplay.sprite = data.levelImage;
 
-        // Gombok állapotának frissítése (de az animáció alatt úgyis le vannak tiltva a logikában)
         leftArrow.interactable = (currentIndex > 0);
         rightArrow.interactable = (currentIndex < levels.Length - 1);
 
@@ -108,41 +156,31 @@ public class LevelCarousel : MonoBehaviour
         }
     }
 
-    // --- JAVÍTOTT ANIMÁCIÓ ---
     IEnumerator AnimateTransition()
     {
-        isAnimating = true; // Zárjuk a bemenetet
-
+        isAnimating = true;
         float timer = 0;
 
-        // 1. Kiemelkedés (Kicsinyítés)
-        // Most már mindig a defaultScale-hez viszonyítunk!
         while (timer < transitionSpeed)
         {
             timer += Time.deltaTime;
             float progress = timer / transitionSpeed;
-            // A "defaultScale"-bõl indulunk, nem a "transform.localScale"-ból
             levelImageDisplay.transform.localScale = Vector3.Lerp(defaultScale, defaultScale * 0.8f, progress);
             yield return null;
         }
 
-        // 2. Adatcsere (amikor a legkisebb)
         UpdateUI(true);
 
-        // 3. Visszatérés (Nagyítás)
         timer = 0;
         while (timer < transitionSpeed)
         {
             timer += Time.deltaTime;
             float progress = timer / transitionSpeed;
-            // Visszatérünk a fix defaultScale-re
             levelImageDisplay.transform.localScale = Vector3.Lerp(defaultScale * 0.8f, defaultScale, progress);
             yield return null;
         }
 
-        // Biztos ami biztos: beállítjuk pontosra a végén
         levelImageDisplay.transform.localScale = defaultScale;
-
-        isAnimating = false; // Újra engedjük a gombokat
+        isAnimating = false;
     }
 }
