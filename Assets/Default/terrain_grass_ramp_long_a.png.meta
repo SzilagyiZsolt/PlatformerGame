@@ -147,7 +147,8 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      terrain_grass_ramp_long_a_0: -8279253543150111763
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

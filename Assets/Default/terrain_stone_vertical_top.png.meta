@@ -147,7 +147,8 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      terrain_stone_vertical_top_0: -5013180001121233309
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

@@ -147,7 +147,8 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      hud_character_percent_0: -7971734323591545670
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
