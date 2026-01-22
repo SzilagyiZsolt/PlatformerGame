@@ -217,6 +217,15 @@ public class GameManager : MonoBehaviour
         Vector2 checkLeft = new Vector2(pos.x - edgeCheckDistance, pos.y + 0.5f);
         Vector2 checkRight = new Vector2(pos.x + edgeCheckDistance, pos.y + 0.5f);
         if (!Physics2D.Raycast(checkLeft, Vector2.down, 1.5f, playerScript.groundLayer) || !Physics2D.Raycast(checkRight, Vector2.down, 1.5f, playerScript.groundLayer)) return false;
+        Teleporter[] teleporters = FindObjectsByType<Teleporter>(FindObjectsSortMode.None);
+        foreach (Teleporter tp in teleporters)
+        {
+            // Ha a vizsgált pozíció túl közel van bármelyik teleporthoz (pl. 2 egység)
+            if (Vector3.Distance(pos, tp.transform.position) < 2.0f)
+            {
+                return false; // Nem biztonságos, ne rakj ide tüskét!
+            }
+        }
         return true;
     }
 
@@ -337,40 +346,48 @@ public class GameManager : MonoBehaviour
         if (gameUI != null) gameUI.SetActive(false);
         if (playerScript != null) playerScript.gameObject.SetActive(false);
 
-        // --- CSAPDÁK MENTÉSE (Marad a régi) ---
+        int currentSlot = PlayerPrefs.GetInt("CurrentSlot", 1);
+        int difficulty = PlayerPrefs.GetInt("Difficulty", 1);
+
+        // --- CSAPDÁK MENTÉSE (Csak normál módban) ---
         if (!isJubileeMode)
         {
             int currentLevelIndex = SceneManager.GetActiveScene().buildIndex;
             SaveSystem.SaveTrapsForLevel(currentLevelIndex, trapPositions);
         }
 
-        // --- PROGRESSZIÓ MENTÉSE (ITT A JAVÍTÁS!) ---
-        int nextSceneIndex = SceneManager.GetActiveScene().buildIndex + 1;
-        bool hasNextLevel = nextSceneIndex < SceneManager.sceneCountInBuildSettings;
-        int currentSlot = PlayerPrefs.GetInt("CurrentSlot", 1);
-        int difficulty = PlayerPrefs.GetInt("Difficulty", 1);
+        // --- PROGRESSZIÓ MENTÉSE ---
 
-        if (hasNextLevel && !isJubileeMode)
-        {
-            // 1. Lekérjük, hol tartottunk eddig (pl. Level 5)
-            int currentlySavedLevel = SaveSystem.GetSavedLevel(currentSlot);
-
-            // 2. Azt mentjük el, amelyik a NAGYOBB. 
-            // Ha Level 1-et csináltad meg (next=2), de már 5-nél tartasz: Max(2, 5) = 5. (Marad az 5)
-            // Ha Level 5-öt csináltad meg (next=6), és 5-nél tartasz: Max(6, 5) = 6. (Fejlõdsz)
-            int levelToSave = Mathf.Max(nextSceneIndex, currentlySavedLevel);
-
-            SaveSystem.SaveGame(currentSlot, levelToSave, difficulty, 1);
-        }
-        // ---------------------------------------------
-
+        // 1. ESET: Jubileumi mód vége (Sikeresen teljesítve a 10. szint)
         if (isJubileeMode)
         {
             if (winText != null) winText.text = "10TH ANNIVERSARY COMPLETE!";
+
+            // ITT A JAVÍTÁS:
+            // Ha a Jubileumi módot (Level 10) megcsináltuk, akkor oldjuk fel a 11-est!
+            int currentlySavedLevel = SaveSystem.GetSavedLevel(currentSlot);
+
+            // Ha még nem értük el a 11-et, akkor most mentsük el
+            if (currentlySavedLevel < 11)
+            {
+                SaveSystem.SaveGame(currentSlot, 11, difficulty, 1);
+                Debug.Log("Jubilee Complete! Level 11 Unlocked.");
+            }
         }
+        // 2. ESET: Normál mód (Bármelyik másik pálya)
         else
         {
+            int nextSceneIndex = SceneManager.GetActiveScene().buildIndex + 1;
+            bool hasNextLevel = nextSceneIndex < SceneManager.sceneCountInBuildSettings;
+
             if (winText != null) winText.text = hasNextLevel ? "LEVEL COMPLETE!" : "YOU WON THE GAME!";
+
+            if (hasNextLevel)
+            {
+                int currentlySavedLevel = SaveSystem.GetSavedLevel(currentSlot);
+                int levelToSave = Mathf.Max(nextSceneIndex, currentlySavedLevel);
+                SaveSystem.SaveGame(currentSlot, levelToSave, difficulty, 1);
+            }
         }
 
         yield return new WaitForSeconds(4);
@@ -379,8 +396,24 @@ public class GameManager : MonoBehaviour
         isJubileeMode = false;
         MovingPlatform.ResetAllPlatforms();
 
-        if (hasNextLevel && !isJubileeMode) SceneManager.LoadScene(nextSceneIndex);
-        else SceneManager.LoadScene(0);
+        // Ha a 10. pályát vittük végig, vagy normál pályát és van kövi:
+        // A scene index logika itt trükkös lehet, ha a 11. pálya Build Indexe 11.
+        // De a legbiztosabb, ha visszamegyünk a menübe vagy betöltjük a kövi scenet.
+
+        if (isJubileeMode)
+        {
+            // Jubileum után vigyük vissza a Level Selectre (0. scene), ahol már látni fogja a nyitott 11-est
+            SceneManager.LoadScene("LevelSelect");
+        }
+        else
+        {
+            // Normál módban mehet a kövi pálya
+            int nextSceneIndex = SceneManager.GetActiveScene().buildIndex + 1;
+            if (nextSceneIndex < SceneManager.sceneCountInBuildSettings)
+                SceneManager.LoadScene(nextSceneIndex);
+            else
+                SceneManager.LoadScene(0);
+        }
     }
 
     private void ResetStaticVariables()

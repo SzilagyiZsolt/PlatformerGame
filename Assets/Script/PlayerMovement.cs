@@ -8,6 +8,13 @@ public class PlayerMovement : MonoBehaviour
     public int extraJumps = 1;
     public float fallThreshold = -10f;
 
+    [Header("Jég Mechanika")]
+    public float acceleration = 60f;      // Normál talajon milyen gyorsan éri el a max sebességet (legyen magas!)
+    public float deceleration = 60f;      // Normál talajon milyen gyorsan áll meg
+    public float iceAcceleration = 8f;    // Jégen nehezebb elindulni (kisebb érték)
+    public float iceDeceleration = 2f;    // Jégen nagyon lassan áll meg (csúszik)
+    private bool onIce = false;           // Belső változó: épp jégen vagyunk-e?
+
     [Header("Ugrás Finomhangolás")]
     [Range(0, 1)] public float jumpCutMultiplier = 0.5f;
     public float gravityScale = 2.5f;
@@ -47,9 +54,27 @@ public class PlayerMovement : MonoBehaviour
             return;
         }
 
-        // --- TALAJ ÉRZÉKELÉS ---
+        // --- TALAJ ÉRZÉKELÉS ÉS JÉG DETEKTÁLÁS ---
         bool wasGrounded = isGrounded;
-        isGrounded = Physics2D.OverlapCircle(groundCheck.position, checkRadius, groundLayer);
+
+        // Elmentjük a talaj colliderét, hogy megnézzük a Tag-jét
+        Collider2D groundCollider = Physics2D.OverlapCircle(groundCheck.position, checkRadius, groundLayer);
+        isGrounded = groundCollider != null;
+
+        // Megnézzük, hogy a talaj, amin állunk, jég-e
+        if (isGrounded)
+        {
+            if (groundCollider.CompareTag("Ice"))
+            {
+                onIce = true;
+            }
+            else
+            {
+                onIce = false;
+            }
+        }
+        // Ha levegőben vagyunk, megőrizzük az utolsó állapotot (hogy ugrás közben is megmaradjon a lendület/irányítás jellege)
+        // Vagy beállíthatod false-ra, ha levegőben mindig normál irányítást akarsz: onIce = false;
 
         if (isGrounded && !wasGrounded)
         {
@@ -61,23 +86,40 @@ public class PlayerMovement : MonoBehaviour
             jumpCounter = extraJumps;
         }
 
-        // --- MOZGÁS ÉS LENDÜLET LOGIKA (EZT JAVÍTOTTUK) ---
+        // --- MOZGÁS LOGIKA (JÉG + NORMÁL) ---
         float moveInput = Input.GetAxisRaw("Horizontal");
 
-        // 1. A lendület folyamatos csökkentése
+        // 1. Külső lendület (szalag) csökkentése
         externalMomentum = Mathf.Lerp(externalMomentum, 0, Time.deltaTime * momentumDrag);
-
-        // --- ÚJ RÉSZ: A "VÁGÁS" ---
-        // Ha már nagyon kicsi a szám (pl. kisebb mint 0.1), akkor legyen simán 0.
-        // Ezzel megáll a "számolás".
         if (Mathf.Abs(externalMomentum) < 0.1f)
         {
             externalMomentum = 0f;
         }
-        // --------------------------
 
-        // 2. A sebesség kiszámítása: (Gombnyomás * Sebesség) + (Szalag lendület)
-        rb.linearVelocity = new Vector2((moveInput * moveSpeed) + externalMomentum, rb.linearVelocity.y);
+        // 2. Célsebesség kiszámítása
+        float targetSpeed = moveInput * moveSpeed;
+
+        // 3. Gyorsulás mértékének kiválasztása (Jég vs Normál)
+        float accelRate;
+        if (onIce)
+        {
+            // Ha a játékos nyom gombot (van targetSpeed), akkor gyorsulunk, ha nem, akkor csúszunk (lassulunk)
+            accelRate = (Mathf.Abs(targetSpeed) > 0.01f) ? iceAcceleration : iceDeceleration;
+        }
+        else
+        {
+            accelRate = (Mathf.Abs(targetSpeed) > 0.01f) ? acceleration : deceleration;
+        }
+
+        // 4. A sebesség alkalmazása Inerciával (MoveTowards)
+        // Kivonjuk a külső lendületet, hogy csak a játékos saját sebességét módosítsuk
+        float currentOwnSpeed = rb.linearVelocity.x - externalMomentum;
+
+        // Fokozatosan közelítjük a jelenlegi sebességet a célsebességhez
+        float newOwnSpeed = Mathf.MoveTowards(currentOwnSpeed, targetSpeed, accelRate * Time.deltaTime);
+
+        // Visszaírjuk a Rigidbody-ba: (Saját új sebesség) + (Külső lendület)
+        rb.linearVelocity = new Vector2(newOwnSpeed + externalMomentum, rb.linearVelocity.y);
 
         // ----------------------------------------------------
 
@@ -106,7 +148,7 @@ public class PlayerMovement : MonoBehaviour
             }
         }
 
-        // Ugrás levágása (ha elengedi a gombot)
+        // Ugrás levágása
         if (Input.GetButtonUp("Jump") && rb.linearVelocity.y > 0)
         {
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y * jumpCutMultiplier);
@@ -117,7 +159,7 @@ public class PlayerMovement : MonoBehaviour
 
     void Jump()
     {
-        // Ugrás előtt nullázzuk az Y sebességet a konzisztens ugrásmagasságért
+        // Ugrás előtt nullázzuk az Y sebességet
         rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0);
         rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
         CreateDust();
@@ -131,7 +173,6 @@ public class PlayerMovement : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        // Csak a csapdát figyeljük itt, a célt a Goal.cs intézi!
         if (collision.CompareTag("Trap"))
         {
             Die();

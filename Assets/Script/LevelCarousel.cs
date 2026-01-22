@@ -3,7 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 using UnityEngine.SceneManagement;
 using System.Collections;
-using UnityEngine.EventSystems; // <-- EZ KELL A KONTROLLERHEZ!
+using UnityEngine.EventSystems;
 
 public class LevelCarousel : MonoBehaviour
 {
@@ -15,14 +15,19 @@ public class LevelCarousel : MonoBehaviour
     public Button playButton;
     public GameObject lockIcon;
 
+    // --- ÚJ RÉSZ: HÁTTÉR ---
+    [Header("Téli Téma")]
+    public Image backgroundPanelImage; // Húzd be ide a Canvas háttér paneljének Image komponensét!
+    public Sprite snowyBackground;     // Húzd be ide a havas képet!
+    // -----------------------
+
     [Header("Animáció")]
     public float transitionSpeed = 0.2f;
 
     [Header("Pálya Adatok")]
-    public LevelData[] levels; // FONTOS: Itt majd legyen 10 elem a Unity-ben!
+    public LevelData[] levels;
 
     [Header("Kontroller Navigáció")]
-    // Ide húzd be a PLAY gombot az Inspectorban!
     public GameObject firstSelectedObject;
 
     private int currentIndex = 0;
@@ -30,8 +35,6 @@ public class LevelCarousel : MonoBehaviour
 
     private Vector3 defaultScale;
     private bool isAnimating = false;
-
-    // Változó a "spam" elkerülésére (hogy ne pörgessen túl gyorsan)
     private float inputCooldown = 0f;
 
     void Start()
@@ -44,13 +47,18 @@ public class LevelCarousel : MonoBehaviour
         int currentSlot = PlayerPrefs.GetInt("CurrentSlot", 1);
         unlockedLevelIndex = SaveSystem.GetSavedLevel(currentSlot);
 
-        // --- MÓDOSÍTÁS: Ha végigvitte a játékot (unlockedLevelIndex > levels.Length) ---
-        // Akkor is csak a lista végére ugorjon, ne crasheljen
+        // --- ÚJ RÉSZ: Téli háttér beállítása ---
+        // Ha az aktuális mentésben elértük a 11-et (vagyis a 10. pálya kész)
+        if (unlockedLevelIndex >= 11 && backgroundPanelImage != null && snowyBackground != null)
+        {
+            backgroundPanelImage.sprite = snowyBackground;
+        }
+        // ----------------------------------------
+
         currentIndex = Mathf.Clamp(unlockedLevelIndex - 1, 0, levels.Length - 1);
 
         UpdateUI(false);
 
-        // Amikor a Level Selector elindul, rátesszük a jelölést a Play gombra
         if (EventSystem.current != null && firstSelectedObject != null)
         {
             EventSystem.current.SetSelectedGameObject(null);
@@ -62,13 +70,12 @@ public class LevelCarousel : MonoBehaviour
     {
         if (inputCooldown > 0) inputCooldown -= Time.deltaTime;
 
-        // Joystick Input (Balra/Jobbra)
         float horizontalInput = Input.GetAxisRaw("Horizontal");
 
         if (horizontalInput > 0.5f && inputCooldown <= 0)
         {
             NextLevel();
-            inputCooldown = 0.4f; // Fél másodpercet várni kell a kövi lapozásig
+            inputCooldown = 0.4f;
         }
         else if (horizontalInput < -0.5f && inputCooldown <= 0)
         {
@@ -76,11 +83,9 @@ public class LevelCarousel : MonoBehaviour
             inputCooldown = 0.4f;
         }
 
-        // A Kontroller 'A' vagy 'X' gombja elindítja a pályát (ha a Play gomb aktív)
         if (Input.GetButtonDown("Jump") || Input.GetButtonDown("Submit"))
         {
-            // Opcionális: Ha nem Button-ként használod a Play-t, itt meghívhatod direktben:
-            // LoadCurrentLevel(); 
+            // Opcionális: LoadCurrentLevel(); 
         }
     }
 
@@ -98,29 +103,22 @@ public class LevelCarousel : MonoBehaviour
         StartCoroutine(AnimateTransition());
     }
 
-    // --- ITT A LÉNYEGES VÁLTOZÁS ---
     public void LoadCurrentLevel()
     {
-        // Csak akkor engedjük, ha fel van oldva
         if (unlockedLevelIndex >= currentIndex + 1)
         {
-            // Ellenõrizzük, hogy a 10. pálya van-e kiválasztva
-            // (Mivel a lista 0-tól indul, a 9-es index a 10. pálya)
             if (currentIndex == 9)
             {
-                // Ez a 10. Jubileumi pálya -> Speciális indítás!
                 Debug.Log("Jubilee Mode Selected via Carousel");
                 GameManager.StartJubileeMode();
             }
             else
             {
-                // Ez egy sima pálya (1-9) -> Normál indítás
                 GameManager.ResetStaticVariablesForNewGame();
                 SceneManager.LoadScene(levels[currentIndex].sceneIndex);
             }
         }
     }
-    // -------------------------------
 
     public void BackToMenu()
     {
@@ -129,7 +127,6 @@ public class LevelCarousel : MonoBehaviour
 
     private void UpdateUI(bool animate)
     {
-        // Biztonsági ellenõrzés, ha véletlenül nincs beállítva elég LevelData
         if (currentIndex >= levels.Length) return;
 
         LevelData data = levels[currentIndex];

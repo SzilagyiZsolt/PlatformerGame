@@ -470,6 +470,10 @@ MonoBehaviour:
   difficultyPanel: {fileID: 207454163}
   mainMenuPanel: {fileID: 558262226}
   settingsPanel: {fileID: 1516521225}
+  snowyBackground: {fileID: -3772743685166156270, guid: fc0bde1a1dad62f4ab14fc451c9f0840, type: 3}
+  menuBackgroundImage: {fileID: 558262228}
+  saveSlotsBackgroundImage: {fileID: 639867664}
+  difficultyBackgroundImage: {fileID: 639867664}
   playButtonObj: {fileID: 1363405703}
   slot1ButtonObj: {fileID: 1626554109}
   normalDiffButtonObj: {fileID: 634511406}

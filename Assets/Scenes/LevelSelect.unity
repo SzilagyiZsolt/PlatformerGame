@@ -1779,6 +1779,8 @@ MonoBehaviour:
   rightArrow: {fileID: 8340815}
   playButton: {fileID: 63009130}
   lockIcon: {fileID: 1482422306}
+  backgroundPanelImage: {fileID: 446035192}
+  snowyBackground: {fileID: 8565819522596069559, guid: 541810e685e1ab04dbbe9458215098cb, type: 3}
   transitionSpeed: 0.2
   levels:
   - levelName: Level 1
@@ -1811,6 +1813,27 @@ MonoBehaviour:
   - levelName: Level 10
     sceneIndex: 1
     levelImage: {fileID: 21300000, guid: c9728c81abbcab340b7948c1fe168afc, type: 3}
+  - levelName: Level 11
+    sceneIndex: 10
+    levelImage: {fileID: -442178237508256688, guid: 9a1c6dc2bc75c904cb98af20d9772244, type: 3}
+  - levelName: Level 12
+    sceneIndex: 11
+    levelImage: {fileID: 5982754102676445249, guid: 185e0f99273db774d942e12ec94d63d3, type: 3}
+  - levelName: Level 13
+    sceneIndex: 12
+    levelImage: {fileID: -276090055075448622, guid: 9cacd433f18dac64084b822cef3e8769, type: 3}
+  - levelName: Level 14
+    sceneIndex: 13
+    levelImage: {fileID: -478139103420494466, guid: 8aaf8e37f283b5249b0f4f4bcd2d0dc1, type: 3}
+  - levelName: Level 15
+    sceneIndex: 14
+    levelImage: {fileID: -722023219140441435, guid: 3481dfa21d192fc4f9e9e59c259bfe09, type: 3}
+  - levelName: Level 16
+    sceneIndex: 15
+    levelImage: {fileID: -2144795313883137344, guid: da46d9714bbfa3543ad55e24e6e9ad36, type: 3}
+  - levelName: Level 17
+    sceneIndex: 16
+    levelImage: {fileID: 6818963314197112726, guid: 4ba6664c7168c82488723a6fc8a86934, type: 3}
   firstSelectedObject: {fileID: 63009127}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

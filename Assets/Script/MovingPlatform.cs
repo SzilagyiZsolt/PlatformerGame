@@ -102,26 +102,50 @@ public class MovingPlatform : MonoBehaviour
     }
 
     // --- ÜTKÖZÉS KEZELÉS (Változatlan) ---
-    private void OnCollisionEnter2D(Collision2D collision) => CheckCollision(collision);
-    private void OnCollisionStay2D(Collision2D collision) => CheckCollision(collision);
-
-    private void CheckCollision(Collision2D collision)
+    private void OnCollisionEnter2D(Collision2D collision)
     {
+        // Amikor a játékos RÁLÉP (vagy nekimegy)
         if (collision.gameObject.CompareTag("Player"))
         {
-            PlayerMovement player = collision.gameObject.GetComponent<PlayerMovement>();
+            // Megnézzük, hogy a játékos a platform FELETT van-e (hogy ne tapadjon rá, ha alulról fejeli meg)
+            // A contact point vizsgálata pontosabb, mint a transform pozíció kivonása
+            foreach (ContactPoint2D contact in collision.contacts)
+            {
+                // Ha a normál vektor lefelé mutat (a platform szemszögébõl), azaz a játékos fentrõl érkezik
+                // A contact.normal a játékos felé mutat. Ha Y > 0.5, akkor a játékos a platform tetején van.
+                // DE VIGYÁZAT: A contact.normal iránya attól függ, melyik objektumot vizsgáljuk.
+                // A Collision2D-ben a 'contact.normal' az ütközés felületére merõleges.
+
+                // Egyszerûbb módszer: Ha a játékos talpa (Y min) magasabban van, mint a platform közepe.
+                if (collision.transform.position.y > transform.position.y + 0.1f)
+                {
+                    collision.transform.SetParent(transform);
+                    return; // Megvan a szülõ beállítás, mehetünk
+                }
+            }
+
+            // Ha a "Kill Zone" logikát meg akarod tartani a lefelé mozgó lifteknél:
             bool isMovingDown = targetPos.y < transform.position.y;
             float relativeY = collision.transform.position.y - transform.position.y;
 
             if (isMovingDown && relativeY < killZoneY)
             {
+                PlayerMovement player = collision.gameObject.GetComponent<PlayerMovement>();
                 if (player != null)
                 {
-                    collision.transform.SetParent(null);
+                    collision.transform.SetParent(null); // Elengedjük, mielõtt meghal
                     player.Die();
                 }
             }
-            else if (relativeY > 0f)
+        }
+    }
+
+    private void OnCollisionStay2D(Collision2D collision)
+    {
+        // Ez biztosítja, hogy ha valamiért leesne a szülõ (pl. ugrás után), de még rajta áll, visszakerüljön
+        if (collision.gameObject.CompareTag("Player"))
+        {
+            if (collision.transform.position.y > transform.position.y + 0.1f && collision.transform.parent != transform)
             {
                 collision.transform.SetParent(transform);
             }
@@ -132,7 +156,16 @@ public class MovingPlatform : MonoBehaviour
     {
         if (collision.gameObject.CompareTag("Player"))
         {
-            collision.transform.SetParent(null);
+            // Csak akkor vesszük le a szülõt, ha az TÉNYLEG mi vagyunk
+            // (Nehogy levegyük, ha átugrott egy másik mozgó platformra)
+            if (collision.transform.parent == transform)
+            {
+                collision.transform.SetParent(null);
+            }
+
+            // FONTOS: Mivel a DontDestroyOnLoad miatt a játékos átkerülhet a DontDestroyOnLoad scene-be,
+            // amikor levesszük a szülõt, érdemes lehet visszaállítani a Scene-be (opcionális, de ajánlott).
+            // De az alap SetParent(null) is mûködik a legtöbb esetben.
         }
     }
 
